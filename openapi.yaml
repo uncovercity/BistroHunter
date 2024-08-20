@@ -1,0 +1,41 @@
+
+openapi: 3.0.0
+info:
+  title: API de Restaurantes
+  version: 1.0.0
+servers:
+  - url: https://mi-aplicacion.onrender.com
+paths:
+  /restaurantes/{city}:
+    get:
+      summary: Obtener restaurantes en una ciudad
+      parameters:
+        - in: path
+          name: city
+          required: true
+          schema:
+            type: string
+          description: Nombre de la ciudad
+      responses:
+        '200':
+          description: Lista de restaurantes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resultados:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        titulo:
+                          type: string
+                        estrellas:
+                          type: number
+                        rango_de_precios:
+                          type: string
+                        url_maps:
+                          type: string
+        '404':
+          description: No se encontraron restaurantes
