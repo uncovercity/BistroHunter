@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from bistrohunter import buscar_restaurantes
 
 app = FastAPI()
@@ -7,9 +7,13 @@ app = FastAPI()
 async def root():
     return {"message": "Bienvenido a la API de búsqueda de restaurantes"}
 
-@app.get("/restaurantes/{city}")
-async def get_restaurantes(city: str):
-    resultados = buscar_restaurantes(city)
+@app.get("/api/getRestaurants")
+async def get_restaurantes(
+    city: str, 
+    date: str = Query(None, description="La fecha en la que se planea visitar el restaurante"), 
+    price_range: str = Query(None, description="El rango de precios deseado para el restaurante")
+):
+    resultados = buscar_restaurantes(city, date, price_range)
     
     if isinstance(resultados, list):
         return {
