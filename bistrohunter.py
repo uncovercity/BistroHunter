@@ -1,5 +1,5 @@
 from typing import Optional, List, Union
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from datetime import datetime
 import requests
 import locale
@@ -32,17 +32,31 @@ def obtener_horarios(cid: str, dia_semana: str) -> Optional[bool]:
     else:
         return None
 
-def buscar_restaurantes(city: str) -> Union[str, List[dict]]:
-    hoy = datetime.now()
-    dia_semana = obtener_dia_semana(hoy)
+def buscar_restaurantes(city: str, date: Optional[str] = None, price_range: Optional[str] = None) -> Union[str, List[dict]]:
+    # Si se proporciona una fecha, convertirla a día de la semana
+    if date:
+        fecha = datetime.strptime(date, "%Y-%m-%d")
+        dia_semana = obtener_dia_semana(fecha)
+    else:
+        hoy = datetime.now()
+        dia_semana = obtener_dia_semana(hoy)
     
     table_name = 'Restaurantes DB'
     url = f"https://api.airtable.com/v0/{BASE_ID}/{table_name}"
     headers = {
         "Authorization": f"Bearer {AIRTABLE_PAT}",
     }
+
+    # Construir la fórmula de filtro
+    formula_parts = [f"OR({{city}}='{city}', {{city_string}}='{city}')"]
+    
+    if price_range:
+        formula_parts.append(f"{{price_range}}='{price_range}'")
+    
+    filter_formula = "AND(" + ", ".join(formula_parts) + ")"
+
     params = {
-        "filterByFormula": f"OR({{city}}='{city}', {{city_string}}='{city}')"
+        "filterByFormula": filter_formula
     }
 
     response = requests.get(url, headers=headers, params=params)
@@ -69,9 +83,13 @@ def buscar_restaurantes(city: str) -> Union[str, List[dict]]:
 async def root():
     return {"message": "Bienvenido a la API de búsqueda de restaurantes"}
 
-@app.get("/restaurantes/{city}")
-async def get_restaurantes(city: str):
-    resultados = buscar_restaurantes(city)
+@app.get("/api/getRestaurants")
+async def get_restaurantes(
+    city: str, 
+    date: Optional[str] = Query(None, description="La fecha en la que se planea visitar el restaurante"), 
+    price_range: Optional[str] = Query(None, description="El rango de precios deseado para el restaurante")
+):
+    resultados = buscar_restaurantes(city, date, price_range)
     
     if isinstance(resultados, list):
         return {
