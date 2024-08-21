@@ -7,11 +7,14 @@ import logging
 
 app = FastAPI()
 
+# Configuración básica de logging
 logging.basicConfig(level=logging.INFO)
 
+# Acceso a las variables de entorno
 BASE_ID = os.getenv('BASE_ID')
 AIRTABLE_PAT = os.getenv('AIRTABLE_PAT')
 
+# Mapeo manual de días de la semana en español
 DAYS_ES = {
     "Monday": "lunes",
     "Tuesday": "martes",
@@ -24,8 +27,8 @@ DAYS_ES = {
 
 def obtener_dia_semana(fecha: datetime) -> str:
     try:
-        dia_semana_en = fecha.strftime('%A')
-        dia_semana_es = DAYS_ES.get(dia_semana_en, dia_semana_en)
+        dia_semana_en = fecha.strftime('%A')  # Obtenemos el día en inglés
+        dia_semana_es = DAYS_ES.get(dia_semana_en, dia_semana_en)  # Lo convertimos a español
         return dia_semana_es.lower()
     except Exception as e:
         logging.error(f"Error al obtener el día de la semana: {e}")
@@ -77,7 +80,7 @@ def buscar_restaurantes(city: str, date: Optional[str] = None, price_range: Opti
         # Agregar el rango de precios si se proporciona
         if price_range:
             formula_parts.append(f"FIND('{price_range}', ARRAYJOIN({{price_range}}, ', ')) > 0")
-    
+
         filter_formula = "AND(" + ", ".join(formula_parts) + ")"
 
         params = {
@@ -98,7 +101,7 @@ def buscar_restaurantes(city: str, date: Optional[str] = None, price_range: Opti
                     restaurantes_abiertos.append(record['fields'])
             
             if restaurantes_abiertos:
-                return restaurantes_abiertos[:3]  # Limitar a 3 resultados
+                return restaurantes_abiertos[:3]  
             else:
                 return "No se encontraron restaurantes abiertos hoy."
         else:
@@ -106,3 +109,33 @@ def buscar_restaurantes(city: str, date: Optional[str] = None, price_range: Opti
     except Exception as e:
         logging.error(f"Error al buscar restaurantes: {e}")
         raise HTTPException(status_code=500, detail="Error al buscar restaurantes")
+    logging.info(f"Consulta enviada a Airtable: {url} con filtro: {filter_formula}")
+
+
+@app.get("/")
+async def root():
+    return {"message": "Bienvenido a la API de búsqueda de restaurantes"}
+
+@app.get("/api/getRestaurants")
+async def get_restaurantes(
+    city: str, 
+    date: Optional[str] = Query(None, description="La fecha en la que se planea visitar el restaurante"), 
+    price_range: Optional[str] = Query(None, description="El rango de precios deseado para el restaurante"),
+    cocina: Optional[str] = Query(None, description="El tipo de cocina que prefiere el cliente")
+):
+    resultados = buscar_restaurantes(city, date, price_range, cocina)
+    
+    if isinstance(resultados, list):
+        return {
+            "resultados": [
+                {
+                    "titulo": restaurante['title'],
+                    "estrellas": restaurante.get('score', 'N/A'),
+                    "rango_de_precios": restaurante['price_range'],
+                    "url_maps": restaurante['url']
+                }
+                for restaurante in resultados
+            ]
+        }
+    else:
+        return {"mensaje": resultados}
