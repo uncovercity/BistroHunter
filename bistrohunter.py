@@ -32,8 +32,8 @@ DAYS_ES = {
 
 def obtener_dia_semana(fecha: datetime) -> str:
     try:
-        dia_semana_en = fecha.strftime('%A')  # Obtenemos el día en inglés
-        dia_semana_es = DAYS_ES.get(dia_semana_en, dia_semana_en)  # Lo convertimos a español
+        dia_semana_en = fecha.strftime('%A') 
+        dia_semana_es = DAYS_ES.get(dia_semana_en, dia_semana_en) 
         return dia_semana_es.lower()
     except Exception as e:
         logging.error(f"Error al obtener el día de la semana: {e}")
@@ -62,7 +62,7 @@ def obtener_horarios(cid: str, dia_semana: str) -> Optional[bool]:
         logging.error(f"Error al obtener horarios: {e}")
         raise HTTPException(status_code=500, detail="Error al obtener horarios")
 
-def buscar_restaurantes(city: str, date: Optional[str] = None, price_range: Optional[str] = None) -> Union[str, List[dict]]:
+def buscar_restaurantes(city: str, date: Optional[str] = None, price_range: Optional[str] = None, cocina: Optional[str] = None) -> Union[str, List[dict]]:
     try:
         if date:
             fecha = datetime.strptime(date, "%Y-%m-%d")
@@ -76,8 +76,10 @@ def buscar_restaurantes(city: str, date: Optional[str] = None, price_range: Opti
             "Authorization": f"Bearer {AIRTABLE_PAT}",
         }
 
-        formula_parts = [f"OR({{city}}='{city}', {{city_string}}='{city}')"]
-    
+        formula_parts = [
+    f"AND(OR({{city}}='{city}', {{city_string}}='{city}'), FIND('{cocina}', {{grouped_categories}}) > 0)"
+]
+
         if price_range:
             formula_parts.append(f"{{price_range}}='{price_range}'")
     
