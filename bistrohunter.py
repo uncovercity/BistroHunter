@@ -14,11 +14,6 @@ logging.basicConfig(level=logging.INFO)
 BASE_ID = os.getenv('BASE_ID')
 AIRTABLE_PAT = os.getenv('AIRTABLE_PAT')
 
-app = FastAPI()
-
-# Configuración básica de logging
-logging.basicConfig(level=logging.INFO)
-
 # Mapeo manual de días de la semana en español
 DAYS_ES = {
     "Monday": "lunes",
@@ -32,8 +27,8 @@ DAYS_ES = {
 
 def obtener_dia_semana(fecha: datetime) -> str:
     try:
-        dia_semana_en = fecha.strftime('%A') 
-        dia_semana_es = DAYS_ES.get(dia_semana_en, dia_semana_en) 
+        dia_semana_en = fecha.strftime('%A')
+        dia_semana_es = DAYS_ES.get(dia_semana_en, dia_semana_en)
         return dia_semana_es.lower()
     except Exception as e:
         logging.error(f"Error al obtener el día de la semana: {e}")
@@ -76,10 +71,13 @@ def buscar_restaurantes(city: str, date: Optional[str] = None, price_range: Opti
             "Authorization": f"Bearer {AIRTABLE_PAT}",
         }
 
-        formula_parts = [
-    f"AND(OR({{city}}='{city}', {{city_string}}='{city}'), FIND('{cocina}', {{grouped_categories}}) > 0)"
-]
+        formula_parts = [f"OR({{city}}='{city}', {{city_string}}='{city}')"]
 
+        # Agregar la búsqueda por cocina si se proporciona
+        if cocina:
+            formula_parts.append(f"FIND('{cocina}', {{grouped_categories}}) > 0")
+    
+        # Agregar el rango de precios si se proporciona
         if price_range:
             formula_parts.append(f"{{price_range}}='{price_range}'")
     
@@ -121,7 +119,7 @@ async def get_restaurantes(
     city: str, 
     date: Optional[str] = Query(None, description="La fecha en la que se planea visitar el restaurante"), 
     price_range: Optional[str] = Query(None, description="El rango de precios deseado para el restaurante"),
-    cocina = Query(None, description="El tipo de cocina que prefiere el cliente")
+    cocina: Optional[str] = Query(None, description="El tipo de cocina que prefiere el cliente")
 ):
     resultados = buscar_restaurantes(city, date, price_range, cocina)
     
