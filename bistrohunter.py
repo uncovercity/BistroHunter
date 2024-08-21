@@ -120,7 +120,8 @@ async def root():
 async def get_restaurantes(
     city: str, 
     date: Optional[str] = Query(None, description="La fecha en la que se planea visitar el restaurante"), 
-    price_range: Optional[str] = Query(None, description="El rango de precios deseado para el restaurante")
+    price_range: Optional[str] = Query(None, description="El rango de precios deseado para el restaurante"),
+    cocina = Query(None, description="El tipo de cocina que prefiere el cliente")
 ):
     resultados = buscar_restaurantes(city, date, price_range, cocina)
     
