@@ -79,7 +79,7 @@ def buscar_restaurantes(city: str, date: Optional[str] = None, price_range: Opti
     
         # Agregar el rango de precios si se proporciona
         if price_range:
-            formula_parts.append(f"FIND('{price_range}', {{price_range}}) > 0")
+            formula_parts.append(f"FIND('{price_range}', ARRAYJOIN({{price_range}}, ', ')) > 0")
     
         filter_formula = "AND(" + ", ".join(formula_parts) + ")"
 
