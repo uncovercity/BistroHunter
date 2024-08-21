@@ -4,6 +4,8 @@ from datetime import datetime
 import requests
 import logging
 
+BASE_ID = 'appjiZRijEu48x8kL'
+
 app = FastAPI()
 
 # Configuración básica de logging
