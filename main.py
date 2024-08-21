@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Query
-from bistrohunter import buscar_restaurantes
+from bistrohunter import buscar_restaurantes  # Importa solo la lógica, no las rutas
 
 app = FastAPI()
 
@@ -14,7 +14,6 @@ async def get_restaurantes(
     price_range: str = Query(None, description="El rango de precios deseado para el restaurante"),
     cocina: str = Query(None, description="El tipo de cocina que prefiere el cliente")
 ):
-    # Asegúrate de que se pasa 'cocina' a 'buscar_restaurantes'
     resultados = buscar_restaurantes(city, date, price_range, cocina)
     
     if isinstance(resultados, list):
