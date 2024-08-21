@@ -7,14 +7,11 @@ import logging
 
 app = FastAPI()
 
-# Configuración básica de logging
 logging.basicConfig(level=logging.INFO)
 
-# Acceso a las variables de entorno
 BASE_ID = os.getenv('BASE_ID')
 AIRTABLE_PAT = os.getenv('AIRTABLE_PAT')
 
-# Mapeo manual de días de la semana en español
 DAYS_ES = {
     "Monday": "lunes",
     "Tuesday": "martes",
@@ -101,7 +98,7 @@ def buscar_restaurantes(city: str, date: Optional[str] = None, price_range: Opti
                     restaurantes_abiertos.append(record['fields'])
             
             if restaurantes_abiertos:
-                return restaurantes_abiertos[:3]  
+                return restaurantes_abiertos[:3]  # Limitar a 3 resultados
             else:
                 return "No se encontraron restaurantes abiertos hoy."
         else:
@@ -109,31 +106,3 @@ def buscar_restaurantes(city: str, date: Optional[str] = None, price_range: Opti
     except Exception as e:
         logging.error(f"Error al buscar restaurantes: {e}")
         raise HTTPException(status_code=500, detail="Error al buscar restaurantes")
-
-@app.get("/")
-async def root():
-    return {"message": "Bienvenido a la API de búsqueda de restaurantes"}
-
-@app.get("/api/getRestaurants")
-async def get_restaurantes(
-    city: str, 
-    date: Optional[str] = Query(None, description="La fecha en la que se planea visitar el restaurante"), 
-    price_range: Optional[str] = Query(None, description="El rango de precios deseado para el restaurante"),
-    cocina: Optional[str] = Query(None, description="El tipo de cocina que prefiere el cliente")
-):
-    resultados = buscar_restaurantes(city, date, price_range, cocina)
-    
-    if isinstance(resultados, list):
-        return {
-            "resultados": [
-                {
-                    "titulo": restaurante['title'],
-                    "estrellas": restaurante.get('score', 'N/A'),
-                    "rango_de_precios": restaurante['price_range'],
-                    "url_maps": restaurante['url']
-                }
-                for restaurante in resultados
-            ]
-        }
-    else:
-        return {"mensaje": resultados}
