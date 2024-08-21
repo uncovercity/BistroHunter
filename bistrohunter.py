@@ -4,7 +4,6 @@ from fastapi import FastAPI, Query, HTTPException
 from datetime import datetime
 import requests
 import logging
-
 app = FastAPI()
 
 # Configuración básica de logging
@@ -24,16 +23,14 @@ DAYS_ES = {
     "Saturday": "sábado",
     "Sunday": "domingo"
 }
-
 def obtener_dia_semana(fecha: datetime) -> str:
     try:
-        dia_semana_en = fecha.strftime('%A')  # Obtenemos el día en inglés
-        dia_semana_es = DAYS_ES.get(dia_semana_en, dia_semana_en)  # Lo convertimos a español
+        dia_semana_en = fecha.strftime('%A')
+        dia_semana_es = DAYS_ES.get(dia_semana_en, dia_semana_en)
         return dia_semana_es.lower()
     except Exception as e:
         logging.error(f"Error al obtener el día de la semana: {e}")
         raise HTTPException(status_code=500, detail="Error al procesar la fecha")
-
 def obtener_horarios(cid: str, dia_semana: str) -> Optional[bool]:
     try:
         table_name = 'Horarios'
@@ -44,7 +41,6 @@ def obtener_horarios(cid: str, dia_semana: str) -> Optional[bool]:
         params = {
             "filterByFormula": f"AND({{cid}}='{cid}', {{isOpen?}}='{dia_semana}')"
         }
-
         response = requests.get(url, headers=headers, params=params)
         
         if response.status_code == 200:
@@ -56,7 +52,6 @@ def obtener_horarios(cid: str, dia_semana: str) -> Optional[bool]:
     except Exception as e:
         logging.error(f"Error al obtener horarios: {e}")
         raise HTTPException(status_code=500, detail="Error al obtener horarios")
-
 def buscar_restaurantes(city: str, date: Optional[str] = None, price_range: Optional[str] = None, cocina: Optional[str] = None) -> Union[str, List[dict]]:
     try:
         if date:
@@ -70,15 +65,14 @@ def buscar_restaurantes(city: str, date: Optional[str] = None, price_range: Opti
         headers = {
             "Authorization": f"Bearer {AIRTABLE_PAT}",
         }
-
         formula_parts = [f"OR({{city}}='{city}', {{city_string}}='{city}')"]
-
         # Agregar la búsqueda por cocina si se proporciona
         if cocina:
             formula_parts.append(f"FIND('{cocina}', {{grouped_categories}}) > 0")
-    
+
         # Agregar el rango de precios si se proporciona
         if price_range:
+            formula_parts.append(f"FIND('{price_range}', {{price_range}}) > 0")
             formula_parts.append(f"FIND('{price_range}', ARRAYJOIN({{price_range}}, ', ')) > 0")
 
         filter_formula = "AND(" + ", ".join(formula_parts) + ")"
@@ -86,7 +80,6 @@ def buscar_restaurantes(city: str, date: Optional[str] = None, price_range: Opti
         params = {
             "filterByFormula": filter_formula
         }
-
         response = requests.get(url, headers=headers, params=params)
         
         if response.status_code == 200:
@@ -109,13 +102,9 @@ def buscar_restaurantes(city: str, date: Optional[str] = None, price_range: Opti
     except Exception as e:
         logging.error(f"Error al buscar restaurantes: {e}")
         raise HTTPException(status_code=500, detail="Error al buscar restaurantes")
-    logging.info(f"Consulta enviada a Airtable: {url} con filtro: {filter_formula}")
-
-
 @app.get("/")
 async def root():
     return {"message": "Bienvenido a la API de búsqueda de restaurantes"}
-
 @app.get("/api/getRestaurants")
 async def get_restaurantes(
     city: str, 
