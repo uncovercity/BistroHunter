@@ -1,3 +1,6 @@
 fastapi[all]
 requests
 openai
+uvicorn
+
+
