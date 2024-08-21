@@ -21,7 +21,7 @@ async def get_restaurantes(
             "resultados": [
                 {
                     "nombre": restaurante['title'],
-                    "tipo_cocina": restaurante['grouped_categories'],
+                    "cocina": restaurante['grouped_categories'],
                     "estrellas": restaurante.get('score', 'N/A'),
                     "rango_de_precios": restaurante['price_range'],
                     "url_maps": restaurante['url']
