@@ -1,10 +1,18 @@
+import os
 from typing import Optional, List, Union
 from fastapi import FastAPI, Query, HTTPException
 from datetime import datetime
 import requests
 import logging
 
-BASE_ID = 'appjiZRijEu48x8kL'
+app = FastAPI()
+
+# Configuración básica de logging
+logging.basicConfig(level=logging.INFO)
+
+# Acceso a las variables de entorno
+BASE_ID = os.getenv('BASE_ID')
+AIRTABLE_PAT = os.getenv('AIRTABLE_PAT')
 
 app = FastAPI()
 
