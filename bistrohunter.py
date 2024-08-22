@@ -146,7 +146,6 @@ def buscar_restaurantes(city: str, date: Optional[str] = None, price_range: Opti
         raise HTTPException(status_code=500, detail="Error al buscar restaurantes")
     logging.info(f"Consulta enviada a Airtable: {url} con filtro: {filter_formula}")
 
-
 @app.get("/")
 async def root():
     return {"message": "Bienvenido a la API de búsqueda de restaurantes"}
@@ -165,7 +164,7 @@ async def get_restaurantes(
             "resultados": [
                 {
                     "titulo": restaurante['title'],
-                    "estrellas": restaurante.get('score', 'N/A'),
+                    "nota_bh" if 'nota_bh' in restaurante else "estrellas": restaurante.get('nota_bh', restaurante.get('score', 'N/A')),
                     "rango_de_precios": restaurante['price_range'],
                     "url_maps": restaurante['url']
                 }
@@ -174,3 +173,4 @@ async def get_restaurantes(
         }
     else:
         return {"mensaje": resultados}
+
