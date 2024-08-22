@@ -1,5 +1,5 @@
 import os
-from typing import Optional, List, Union
+from typing import Optional, List
 from fastapi import FastAPI, Query, HTTPException
 from datetime import datetime
 import requests
@@ -36,17 +36,17 @@ def obtener_dia_semana(fecha: datetime) -> str:
         logging.error(f"Error al obtener el día de la semana: {e}")
         raise HTTPException(status_code=500, detail="Error al procesar la fecha")
 
-# Create a TTL cache with a maximum of 100 items that expire after 5 minutes
-airtable_cache = TTLCache(maxsize=1000, ttl=60*30)
+# Crear un caché TTL con un máximo de 1000 elementos que expiran después de 30 minutos
+restaurantes_cache = TTLCache(maxsize=1000, ttl=60*30)
 
 def cache_airtable_request(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         cache_key = f"{func.__name__}:{args}:{kwargs}"
-        if cache_key in airtable_cache:
-            return airtable_cache[cache_key]
+        if cache_key in restaurantes_cache:
+            return restaurantes_cache[cache_key]
         result = func(*args, **kwargs)
-        airtable_cache[cache_key] = result
+        restaurantes_cache[cache_key] = result
         return result
     return wrapper
 
@@ -56,86 +56,75 @@ def airtable_request(url, headers, params):
     return response.json() if response.status_code == 200 else None
 
 @cache_airtable_request
-def obtener_horarios(cid: str, dia_semana: str) -> Optional[bool]:
+def obtener_restaurantes_por_ciudad(
+    city: str, 
+    price_range: Optional[str] = None
+) -> List[dict]:
     try:
-        table_name = 'Horarios'
-        url = f"https://api.airtable.com/v0/{BASE_ID}/{table_name}"
-        headers = {
-            "Authorization": f"Bearer {AIRTABLE_PAT}",
-        }
-        params = {
-            "filterByFormula": f"AND({{cid}}='{cid}', {{isOpen?}}='{dia_semana}')"
-        }
-
-        response_data = airtable_request(url, headers, params)
-        
-        if response_data:
-            records = response_data.get('records', [])
-            return bool(records)
-        else:
-            logging.error("Error al obtener horarios")
-            return None
-    except Exception as e:
-        logging.error(f"Error al obtener horarios: {e}")
-        raise HTTPException(status_code=500, detail="Error al obtener horarios")
-
-@cache_airtable_request
-def buscar_restaurantes(city: str, date: Optional[str] = None, price_range: Optional[str] = None, cocina: Optional[str] = None) -> Union[str, List[dict]]:
-    try:
-        limit = 3  # Variable limit para limitar el número de restaurantes
-
-        if date:
-            fecha = datetime.strptime(date, "%Y-%m-%d")
-        else:
-            fecha = datetime.now()
-        dia_semana = obtener_dia_semana(fecha)
-    
         table_name = 'Restaurantes DB'
         url = f"https://api.airtable.com/v0/{BASE_ID}/{table_name}"
         headers = {
             "Authorization": f"Bearer {AIRTABLE_PAT}",
         }
-
+        
+        # Construir la fórmula para Airtable
         formula_parts = [f"OR({{city}}='{city}', {{city_string}}='{city}')"]
-
-        # Agregar la búsqueda por cocina si se proporciona
-        if cocina:
-            formula_parts.append(f"FIND('{cocina}', {{grouped_categories}}) > 0")
-    
-        # Agregar el rango de precios si se proporciona
+        
         if price_range:
+            # Usar ARRAYJOIN para unir los valores del campo price_range y filtrar
             formula_parts.append(f"FIND('{price_range}', ARRAYJOIN({{price_range}}, ', ')) > 0")
-
+        
         filter_formula = "AND(" + ", ".join(formula_parts) + ")"
-
+        
         params = {
             "filterByFormula": filter_formula
         }
 
         response_data = airtable_request(url, headers, params)
         if response_data:
-            records = response_data.get('records', [])
-            if not records:
-                return "No se encontraron restaurantes en la ciudad especificada."
-            
-            restaurantes_abiertos = []
-
-            for record in records[:limit]:
-                cid = record['fields'].get('cid')
-                if cid and obtener_horarios(cid, dia_semana):
-                    restaurantes_abiertos.append(record['fields'])
-            
-            if restaurantes_abiertos:
-                return restaurantes_abiertos  
-            else:
-                return "No se encontraron restaurantes abiertos hoy."
+            return response_data.get('records', [])
         else:
-            return "Error: No se pudo conectar a Airtable."
+            logging.error("Error al obtener restaurantes de la ciudad")
+            return []
     except Exception as e:
-        logging.error(f"Error al buscar restaurantes: {e}")
-        raise HTTPException(status_code=500, detail="Error al buscar restaurantes")
-    logging.info(f"Consulta enviada a Airtable: {url} con filtro: {filter_formula}")
+        logging.error(f"Error al obtener restaurantes de la ciudad: {e}")
+        raise HTTPException(status_code=500, detail="Error al obtener restaurantes de la ciudad")
 
+def filtrar_y_ordenar_restaurantes(
+    restaurantes: List[dict], 
+    dia_semana: str, 
+    price_range: Optional[str] = None, 
+    cocina: Optional[str] = None
+) -> List[dict]:
+    # Filtrar por día de la semana
+    restaurantes_abiertos = [
+        r for r in restaurantes
+        if dia_semana in r.get('fields', {}).get('day_opened', [])
+    ]
+
+    # Ordenar por nota_bh o score
+    restaurantes_ordenados = sorted(
+        restaurantes_abiertos,
+        key=lambda r: r.get('fields', {}).get('nota_bh', 0) or r.get('fields', {}).get('score', 0),
+        reverse=True
+    )
+
+    # Seleccionar los 3 con la puntuación más alta
+    top_restaurantes = restaurantes_ordenados[:3]
+
+    # Aplicar filtros adicionales si se proporcionan
+    if price_range:
+        top_restaurantes = [
+            r for r in top_restaurantes
+            if price_range in r.get('fields', {}).get('price_range', [])
+        ]
+    if cocina:
+        top_restaurantes = [
+            r for r in top_restaurantes
+            if cocina in r.get('fields', {}).get('grouped_categories', '')
+        ]
+
+    return top_restaurantes
 
 @app.get("/")
 async def root():
@@ -148,19 +137,33 @@ async def get_restaurantes(
     price_range: Optional[str] = Query(None, description="El rango de precios deseado para el restaurante"),
     cocina: Optional[str] = Query(None, description="El tipo de cocina que prefiere el cliente")
 ):
-    resultados = buscar_restaurantes(city, date, price_range, cocina)
-    
-    if isinstance(resultados, list):
+    try:
+        fecha = datetime.strptime(date, "%Y-%m-%d") if date else datetime.now()
+        dia_semana = obtener_dia_semana(fecha)
+
+        # Obtener los restaurantes de la ciudad
+        restaurantes = obtener_restaurantes_por_ciudad(city, price_range)
+        
+        if not restaurantes:
+            return {"mensaje": "No se encontraron restaurantes en la ciudad especificada."}
+        
+        # Filtrar y ordenar los restaurantes
+        top_restaurantes = filtrar_y_ordenar_restaurantes(restaurantes, dia_semana, price_range, cocina)
+        
+        if not top_restaurantes:
+            return {"mensaje": "No se encontraron restaurantes abiertos con los filtros aplicados."}
+        
         return {
             "resultados": [
                 {
-                    "titulo": restaurante['title'],
-                    "estrellas": restaurante.get('score', 'N/A'),
-                    "rango_de_precios": restaurante['price_range'],
-                    "url_maps": restaurante['url']
+                    "titulo": restaurante['fields'].get('title', 'Sin título'),
+                    "descripcion": restaurante['fields'].get('description', 'Sin descripción'),
+                    "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
+                    "puntuacion_bistrohunter": restaurante['fields'].get('nota_bh', restaurante['fields'].get('score', 'N/A'))
                 }
-                for restaurante in resultados
+                for restaurante in top_restaurantes
             ]
         }
-    else:
-        return {"mensaje": resultados}
+    except Exception as e:
+        logging.error(f"Error al buscar restaurantes: {e}")
+        raise HTTPException(status_code=500, detail="Error al buscar restaurantes")
