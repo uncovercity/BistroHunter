@@ -120,15 +120,25 @@ def buscar_restaurantes(city: str, date: Optional[str] = None, price_range: Opti
             
             restaurantes_abiertos = []
 
-            for record in records[:limit]:
+            for record in records:
                 cid = record['fields'].get('cid')
                 if cid and obtener_horarios(cid, dia_semana):
                     restaurantes_abiertos.append(record['fields'])
             
             if restaurantes_abiertos:
-                return restaurantes_abiertos  
+                # Filtrar y ordenar por 'nota_bh' si existe y es mayor que 0.0
+                restaurantes_con_nota_bh = [r for r in restaurantes_abiertos if r.get('nota_bh', 0.0) > 0]
+                
+                if restaurantes_con_nota_bh:
+                    # Ordenar por 'nota_bh' descendente
+                    restaurantes_con_nota_bh.sort(key=lambda x: x['nota_bh'], reverse=True)
+                    return restaurantes_con_nota_bh[:limit]
+                else:
+                    # Si no hay 'nota_bh', ordenar por 'score' descendente
+                    restaurantes_abiertos.sort(key=lambda x: x.get('score', 0), reverse=True)
+                    return restaurantes_abiertos[:limit]
             else:
-                return "No se encontraron restaurantes abiertos hoy."
+                return "No se encontraron restaurantes abiertos para esta fecha."
         else:
             return "Error: No se pudo conectar a Airtable."
     except Exception as e:
