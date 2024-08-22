@@ -9,34 +9,11 @@ from cachetools import TTLCache
 
 app = FastAPI()
 
-# Configuración básica de logging
 logging.basicConfig(level=logging.INFO)
 
-# Acceso a las variables de entorno
 BASE_ID = os.getenv('BASE_ID')
 AIRTABLE_PAT = os.getenv('AIRTABLE_PAT')
 
-# Mapeo manual de días de la semana en español
-DAYS_ES = {
-    "Monday": "lunes",
-    "Tuesday": "martes",
-    "Wednesday": "miércoles",
-    "Thursday": "jueves",
-    "Friday": "viernes",
-    "Saturday": "sábado",
-    "Sunday": "domingo"
-}
-
-def obtener_dia_semana(fecha: datetime) -> str:
-    try:
-        dia_semana_en = fecha.strftime('%A')  # Obtenemos el día en inglés
-        dia_semana_es = DAYS_ES.get(dia_semana_en, dia_semana_en)  # Lo convertimos a español
-        return dia_semana_es.lower()
-    except Exception as e:
-        logging.error(f"Error al obtener el día de la semana: {e}")
-        raise HTTPException(status_code=500, detail="Error al procesar la fecha")
-
-# Create a TTL cache with a maximum of 100 items that expire after 5 minutes
 airtable_cache = TTLCache(maxsize=1000, ttl=60*30)
 
 def cache_airtable_request(func):
@@ -56,40 +33,10 @@ def airtable_request(url, headers, params):
     return response.json() if response.status_code == 200 else None
 
 @cache_airtable_request
-def obtener_horarios(cid: str, dia_semana: str) -> Optional[bool]:
-    try:
-        table_name = 'Horarios'
-        url = f"https://api.airtable.com/v0/{BASE_ID}/{table_name}"
-        headers = {
-            "Authorization": f"Bearer {AIRTABLE_PAT}",
-        }
-        params = {
-            "filterByFormula": f"AND({{cid}}='{cid}', {{isOpen?}}='{dia_semana}')"
-        }
-
-        response_data = airtable_request(url, headers, params)
-        
-        if response_data:
-            records = response_data.get('records', [])
-            return bool(records)
-        else:
-            logging.error("Error al obtener horarios")
-            return None
-    except Exception as e:
-        logging.error(f"Error al obtener horarios: {e}")
-        raise HTTPException(status_code=500, detail="Error al obtener horarios")
-
-@cache_airtable_request
 def buscar_restaurantes(city: str, date: Optional[str] = None, price_range: Optional[str] = None, cocina: Optional[str] = None) -> Union[str, List[dict]]:
     try:
-        limit = 3  # Variable limit para limitar el número de restaurantes
+        limit = 3
 
-        if date:
-            fecha = datetime.strptime(date, "%Y-%m-%d")
-        else:
-            fecha = datetime.now()
-        dia_semana = obtener_dia_semana(fecha)
-    
         table_name = 'Restaurantes DB'
         url = f"https://api.airtable.com/v0/{BASE_ID}/{table_name}"
         headers = {
@@ -118,17 +65,16 @@ def buscar_restaurantes(city: str, date: Optional[str] = None, price_range: Opti
             if not records:
                 return "No se encontraron restaurantes en la ciudad especificada."
             
-            restaurantes_abiertos = []
-
-            for record in records[:limit]:
-                cid = record['fields'].get('cid')
-                if cid and obtener_horarios(cid, dia_semana):
-                    restaurantes_abiertos.append(record['fields'])
+            selected_restaurants = records[:limit]
             
-            if restaurantes_abiertos:
-                return restaurantes_abiertos  
+            all_have_nota_bh = all('nota_bh' in record['fields'] and record['fields']['nota_bh'] is not None for record in selected_restaurants)
+
+            if all_have_nota_bh:
+                sorted_restaurants = sorted(selected_restaurants, key=lambda r: r['fields']['nota_bh'], reverse=True)
             else:
-                return "No se encontraron restaurantes abiertos hoy."
+                sorted_restaurants = sorted(selected_restaurants, key=lambda r: r['fields'].get('score', 0), reverse=True)
+            
+            return [restaurant['fields'] for restaurant in sorted_restaurants]
         else:
             return "Error: No se pudo conectar a Airtable."
     except Exception as e:
