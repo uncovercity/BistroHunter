@@ -163,7 +163,7 @@ async def get_restaurantes(
         return {
             "resultados": [
                 {
-                    "titulo": restaurante['title'],
+                    "titulo": f"{restaurante['title']}. {restaurante['description']}",
                     "nota_bh" if 'nota_bh' in restaurante else "estrellas": restaurante.get('nota_bh', restaurante.get('score', 'N/A')),
                     "rango_de_precios": restaurante['price_range'],
                     "url_maps": restaurante['url']
