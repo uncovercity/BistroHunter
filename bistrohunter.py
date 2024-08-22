@@ -117,10 +117,10 @@ def filtrar_y_ordenar_restaurantes(
         ]
     logging.info(f"Restaurantes después del filtro por cocina: {restaurantes_abiertos}")
 
-    # Ordenar por nota_bh o score
+    # Ordenar únicamente por score
     restaurantes_ordenados = sorted(
         restaurantes_abiertos,
-        key=lambda r: r.get('fields', {}).get('nota_bh', 0) or r.get('fields', {}).get('score', 0),
+        key=lambda r: r.get('fields', {}).get('score', 0),
         reverse=True
     )
     logging.info(f"Restaurantes ordenados: {restaurantes_ordenados}")
