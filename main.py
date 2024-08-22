@@ -1,6 +1,8 @@
 from fastapi import FastAPI, Query, HTTPException
 from typing import Optional
 from bistrohunter import obtener_restaurantes_por_ciudad, filtrar_y_ordenar_restaurantes, obtener_dia_semana
+import logging
+from datetime import datetime
 
 app = FastAPI()
 
