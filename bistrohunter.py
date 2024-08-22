@@ -163,7 +163,7 @@ async def get_restaurantes(
                     "titulo": restaurante['fields'].get('title', 'Sin título'),
                     "descripcion": restaurante['fields'].get('description', 'Sin descripción'),
                     "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
-                    "puntuacion_bistrohunter": restaurante['fields'].get('nota_bh', restaurante['fields'].get('score', 'N/A'))
+                    "puntuacion_bistrohunter": restaurante['fields'].get('score', 'N/A')
                 }
                 for restaurante in top_restaurantes
             ]
