@@ -9,14 +9,11 @@ from cachetools import TTLCache
 
 app = FastAPI()
 
-# Configuración básica de logging
 logging.basicConfig(level=logging.INFO)
 
-# Acceso a las variables de entorno
 BASE_ID = os.getenv('BASE_ID')
 AIRTABLE_PAT = os.getenv('AIRTABLE_PAT')
 
-# Mapeo manual de días de la semana en español
 DAYS_ES = {
     "Monday": "lunes",
     "Tuesday": "martes",
@@ -29,14 +26,13 @@ DAYS_ES = {
 
 def obtener_dia_semana(fecha: datetime) -> str:
     try:
-        dia_semana_en = fecha.strftime('%A')  # Obtenemos el día en inglés
-        dia_semana_es = DAYS_ES.get(dia_semana_en, dia_semana_en)  # Lo convertimos a español
+        dia_semana_en = fecha.strftime('%A') 
+        dia_semana_es = DAYS_ES.get(dia_semana_en, dia_semana_en)
         return dia_semana_es.lower()
     except Exception as e:
         logging.error(f"Error al obtener el día de la semana: {e}")
         raise HTTPException(status_code=500, detail="Error al procesar la fecha")
 
-# Crear un caché TTL con un máximo de 1000 elementos que expiran después de 30 minutos
 restaurantes_cache = TTLCache(maxsize=1000, ttl=60*30)
 
 def cache_airtable_request(func):
@@ -71,7 +67,6 @@ def obtener_restaurantes_por_ciudad(
         formula_parts = [f"OR({{city}}='{city}', {{city_string}}='{city}')"]
         
         if price_range:
-            # Usar ARRAYJOIN para unir los valores del campo price_range y filtrar
             formula_parts.append(f"FIND('{price_range}', ARRAYJOIN({{price_range}}, ', ')) > 0")
         
         filter_formula = "AND(" + ", ".join(formula_parts) + ")"
@@ -99,32 +94,35 @@ def filtrar_y_ordenar_restaurantes(
     # Filtrar por día de la semana
     restaurantes_abiertos = [
         r for r in restaurantes
-        if dia_semana in r.get('fields', {}).get('day_opened', [])
+        if dia_semana in [d.lower() for d in r.get('fields', {}).get('day_opened', [])]
     ]
+    logging.info(f"Restaurantes abiertos: {restaurantes_abiertos}")
 
-    # Ordenar por nota_bh o score
     restaurantes_ordenados = sorted(
         restaurantes_abiertos,
         key=lambda r: r.get('fields', {}).get('nota_bh', 0) or r.get('fields', {}).get('score', 0),
         reverse=True
     )
+    logging.info(f"Restaurantes ordenados: {restaurantes_ordenados}")
 
-    # Seleccionar los 3 con la puntuación más alta
     top_restaurantes = restaurantes_ordenados[:3]
-
-    # Aplicar filtros adicionales si se proporcionan
+    
     if price_range:
         top_restaurantes = [
             r for r in top_restaurantes
-            if price_range in r.get('fields', {}).get('price_range', [])
+            if any(price_range.strip() in pr.strip() for pr in r.get('fields', {}).get('price_range', []))
         ]
+    logging.info(f"Top restaurantes después de filtro por precio: {top_restaurantes}")
+
     if cocina:
         top_restaurantes = [
             r for r in top_restaurantes
-            if cocina in r.get('fields', {}).get('grouped_categories', '')
+            if cocina.lower() in [c.lower() for c in r.get('fields', {}).get('grouped_categories', [])]
         ]
+    logging.info(f"Top restaurantes después de filtro por cocina: {top_restaurantes}")
 
     return top_restaurantes
+
 
 @app.get("/")
 async def root():
