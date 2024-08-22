@@ -127,7 +127,7 @@ def buscar_restaurantes(city: str, date: Optional[str] = None, price_range: Opti
             
             if restaurantes_abiertos:
                 # Filtrar y ordenar por 'nota_bh' si existe y es mayor que 0.0
-                restaurantes_con_nota_bh = [r for r in restaurantes_abiertos if r.get('nota_bh', 0,0) > 0]
+                restaurantes_con_nota_bh = [r for r in restaurantes_abiertos if r.get('nota_bh', 0) > 0]
                 
                 if restaurantes_con_nota_bh:
                     # Ordenar por 'nota_bh' descendente
