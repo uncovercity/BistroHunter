@@ -3,6 +3,5 @@ requests
 openai
 uvicorn
 cachetools
-functools
 
 
