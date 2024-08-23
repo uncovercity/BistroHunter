@@ -111,11 +111,27 @@ def filtrar_y_ordenar_restaurantes(
 
     # Aplicar filtro por tipo de cocina
     if cocina:
-        restaurantes_abiertos = [
-            r for r in restaurantes_abiertos
-            if cocina.lower() in [c.lower() for c in r.get('fields', {}).get('grouped_categories', [])]
-        ]
-    logging.info(f"Restaurantes después del filtro por cocina: {restaurantes_abiertos}")
+        try:
+            # Primero, buscamos restaurantes que solo tengan la cocina indicada
+            restaurantes_exactos = [
+                r for r in restaurantes_abiertos
+                if sorted([c.lower() for c in r.get('fields', {}).get('grouped_categories', [])]) == [cocina.lower()]
+            ]
+
+            if restaurantes_exactos:
+                restaurantes_abiertos = restaurantes_exactos
+            else:
+                # Si no hay restaurantes que coincidan exactamente, buscamos aquellos que incluyen la cocina indicada
+                restaurantes_abiertos = [
+                    r for r in restaurantes_abiertos
+                    if any(cocina.lower() in c.lower() for c in r.get('fields', {}).get('grouped_categories', []))
+                ]
+
+            logging.info(f"Restaurantes después del filtro por cocina: {restaurantes_abiertos}")
+
+        except Exception as e:
+            logging.error(f"Error al filtrar por cocina: {e}")
+            raise HTTPException(status_code=500, detail="Error al aplicar el filtro por cocina")
 
     # Ordenar únicamente por score
     restaurantes_ordenados = sorted(
