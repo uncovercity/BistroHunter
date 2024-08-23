@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO)
 BASE_ID = os.getenv('BASE_ID')
 AIRTABLE_PAT = os.getenv('AIRTABLE_PAT')
 
-# Mapeo manual de días de la semana en español
+
 DAYS_ES = {
     "Monday": "lunes",
     "Tuesday": "martes",
@@ -27,14 +27,14 @@ DAYS_ES = {
 
 def obtener_dia_semana(fecha: datetime) -> str:
     try:
-        dia_semana_en = fecha.strftime('%A')  # Obtenemos el día en inglés
-        dia_semana_es = DAYS_ES.get(dia_semana_en, dia_semana_en)  # Lo convertimos a español
+        dia_semana_en = fecha.strftime('%A')  
+        dia_semana_es = DAYS_ES.get(dia_semana_en, dia_semana_en)  
         return dia_semana_es.lower()
     except Exception as e:
         logging.error(f"Error al obtener el día de la semana: {e}")
         raise HTTPException(status_code=500, detail="Error al procesar la fecha")
 
-# Crear un caché TTL con un máximo de 1000 elementos que expiran después de 30 minutos
+
 restaurantes_cache = TTLCache(maxsize=1000, ttl=60*30)
 
 def cache_airtable_request(func):
@@ -56,7 +56,9 @@ def airtable_request(url, headers, params):
 @cache_airtable_request
 def obtener_restaurantes_por_ciudad(
     city: str, 
-    price_range: Optional[str] = None
+    dia_semana: str, 
+    price_range: Optional[str] = None,
+    cocina: Optional[str] = None
 ) -> List[dict]:
     try:
         table_name = 'Restaurantes DB'
@@ -65,17 +67,31 @@ def obtener_restaurantes_por_ciudad(
             "Authorization": f"Bearer {AIRTABLE_PAT}",
         }
         
-        # Construir la fórmula para Airtable
-        formula_parts = [f"OR({{city}}='{city}', {{city_string}}='{city}')"]
+ 
+        formula_parts = [
+            f"OR({{city}}='{city}', {{city_string}}='{city}')",
+            f"FIND('{dia_semana}', ARRAYJOIN({{day_opened}}, ', ')) > 0"
+        ]
         
         if price_range:
-            # Usar ARRAYJOIN para unir los valores del campo price_range y filtrar
             formula_parts.append(f"FIND('{price_range}', ARRAYJOIN({{price_range}}, ', ')) > 0")
         
+        if cocina:
+         
+            exact_match = f"ARRAYJOIN({{grouped_categories}}, ', ') = '{cocina}'"
+            formula_parts.append(exact_match)
+        
+      
         filter_formula = "AND(" + ", ".join(formula_parts) + ")"
         
+     
+        logging.info(f"Fórmula de filtro construida: {filter_formula}")
+        
         params = {
-            "filterByFormula": filter_formula
+            "filterByFormula": filter_formula,
+            "sort[0][field]": "score",
+            "sort[0][direction]": "desc",
+            "maxRecords": 3
         }
 
         response_data = airtable_request(url, headers, params)
@@ -87,64 +103,6 @@ def obtener_restaurantes_por_ciudad(
     except Exception as e:
         logging.error(f"Error al obtener restaurantes de la ciudad: {e}")
         raise HTTPException(status_code=500, detail="Error al obtener restaurantes de la ciudad")
-
-def filtrar_y_ordenar_restaurantes(
-    restaurantes: List[dict], 
-    dia_semana: str, 
-    price_range: Optional[str] = None, 
-    cocina: Optional[str] = None
-) -> List[dict]:
-    # Filtrar por día de la semana
-    restaurantes_abiertos = [
-        r for r in restaurantes
-        if dia_semana in [d.lower() for d in r.get('fields', {}).get('day_opened', [])]
-    ]
-    logging.info(f"Restaurantes abiertos: {restaurantes_abiertos}")
-
-    # Aplicar filtro por rango de precios
-    if price_range:
-        restaurantes_abiertos = [
-            r for r in restaurantes_abiertos
-            if any(price_range.strip() in pr.strip() for pr in r.get('fields', {}).get('price_range', []))
-        ]
-    logging.info(f"Restaurantes después del filtro por precio: {restaurantes_abiertos}")
-
-    # Aplicar filtro por tipo de cocina
-    if cocina:
-        try:
-            # Primero, buscamos restaurantes que solo tengan la cocina indicada
-            restaurantes_exactos = [
-                r for r in restaurantes_abiertos
-                if sorted([c.lower() for c in r.get('fields', {}).get('grouped_categories', [])]) == [cocina.lower()]
-            ]
-
-            if restaurantes_exactos:
-                restaurantes_abiertos = restaurantes_exactos
-            else:
-                # Si no hay restaurantes que coincidan exactamente, buscamos aquellos que incluyen la cocina indicada
-                restaurantes_abiertos = [
-                    r for r in restaurantes_abiertos
-                    if any(cocina.lower() in c.lower() for c in r.get('fields', {}).get('grouped_categories', []))
-                ]
-
-            logging.info(f"Restaurantes después del filtro por cocina: {restaurantes_abiertos}")
-
-        except Exception as e:
-            logging.error(f"Error al filtrar por cocina: {e}")
-            raise HTTPException(status_code=500, detail="Error al aplicar el filtro por cocina")
-
-    # Ordenar únicamente por score
-    restaurantes_ordenados = sorted(
-        restaurantes_abiertos,
-        key=lambda r: r.get('fields', {}).get('score', 0),
-        reverse=True
-    )
-    logging.info(f"Restaurantes ordenados: {restaurantes_ordenados}")
-
-    # Seleccionar los 3 con la puntuación más alta
-    top_restaurantes = restaurantes_ordenados[:3]
-
-    return top_restaurantes
 
 @app.get("/")
 async def root():
@@ -158,30 +116,25 @@ async def get_restaurantes(
     cocina: Optional[str] = Query(None, description="El tipo de cocina que prefiere el cliente")
 ):
     try:
+        
         fecha = datetime.strptime(date, "%Y-%m-%d") if date else datetime.now()
         dia_semana = obtener_dia_semana(fecha)
 
-        # Obtener los restaurantes de la ciudad
-        restaurantes = obtener_restaurantes_por_ciudad(city, price_range)
+       
+        restaurantes = obtener_restaurantes_por_ciudad(city, dia_semana, price_range, cocina)
         
         if not restaurantes:
-            return {"mensaje": "No se encontraron restaurantes en la ciudad especificada."}
-        
-        # Filtrar y ordenar los restaurantes
-        top_restaurantes = filtrar_y_ordenar_restaurantes(restaurantes, dia_semana, price_range, cocina)
-        
-        if not top_restaurantes:
-            return {"mensaje": "No se encontraron restaurantes abiertos con los filtros aplicados."}
+            return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
         
         return {
             "resultados": [
                 {
                     "titulo": restaurante['fields'].get('title', 'Sin título'),
-                    "descripcion": restaurante['fields'].get('description', 'Sin descripción'),
+                    "descripcion": restaurante['fields'].get('bh_message', 'Sin descripción'),
                     "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
                     "puntuacion_bistrohunter": restaurante['fields'].get('score', 'N/A')
                 }
-                for restaurante in top_restaurantes
+                for restaurante in restaurantes
             ]
         }
     except Exception as e:
