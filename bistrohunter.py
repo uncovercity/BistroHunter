@@ -35,7 +35,7 @@ def obtener_dia_semana(fecha: datetime) -> str:
         raise HTTPException(status_code=500, detail="Error al procesar la fecha")
 
 
-restaurantes_cache = TTLCache(maxsize=1000, ttl=60*30)
+restaurantes_cache = TTLCache(maxsize=10000, ttl=60*30)
 
 def cache_airtable_request(func):
     @wraps(func)
@@ -56,7 +56,7 @@ def airtable_request(url, headers, params):
 @cache_airtable_request
 def obtener_restaurantes_por_ciudad(
     city: str, 
-    dia_semana: str, 
+    dia_semana: Optional[str], 
     price_range: Optional[str] = None,
     cocina: Optional[str] = None
 ) -> List[dict]:
@@ -69,10 +69,12 @@ def obtener_restaurantes_por_ciudad(
         
  
         formula_parts = [
-            f"OR({{city}}='{city}', {{city_string}}='{city}')",
-            f"FIND('{dia_semana}', ARRAYJOIN({{day_opened}}, ', ')) > 0"
+            f"OR({{city}}='{city}', {{city_string}}='{city}')"
         ]
         
+        if dia_semana:
+            formula_parts.append(f"FIND('{dia_semana}', ARRAYJOIN({{day_opened}}, ', ')) > 0")
+
         if price_range:
             formula_parts.append(f"FIND('{price_range}', ARRAYJOIN({{price_range}}, ', ')) > 0")
         
