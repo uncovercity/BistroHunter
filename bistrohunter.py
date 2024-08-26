@@ -56,7 +56,7 @@ def airtable_request(url, headers, params):
 @cache_airtable_request
 def obtener_restaurantes_por_ciudad(
     city: str, 
-    dia_semana: Optional[str], 
+    dia_semana: Optional[str]=None, 
     price_range: Optional[str] = None,
     cocina: Optional[str] = None
 ) -> List[dict]:
