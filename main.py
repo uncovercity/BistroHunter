@@ -18,10 +18,10 @@ async def get_restaurantes(
     cocina: Optional[str] = Query(None, description="El tipo de cocina que prefiere el cliente")
 ):
     try:
-        # Convertir la fecha proporcionada a un objeto datetime
-        fecha = datetime.strptime(date, "%Y-%m-%d") if date else datetime.now()
-        # Obtener el día de la semana en español
-        dia_semana = obtener_dia_semana(fecha)
+        if date:
+
+            fecha = datetime.strptime(date, "%Y-%m-%d")
+            dia_semana = obtener_dia_semana(fecha)
 
         # Obtener los restaurantes filtrados y ordenados desde Airtable
         restaurantes = obtener_restaurantes_por_ciudad(city, dia_semana, price_range, cocina)
