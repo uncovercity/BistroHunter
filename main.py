@@ -15,7 +15,8 @@ async def get_restaurantes(
     city: str, 
     date: Optional[str] = Query(None, description="La fecha en la que se planea visitar el restaurante"), 
     price_range: Optional[str] = Query(None, description="El rango de precios deseado para el restaurante"),
-    cocina: Optional[str] = Query(None, description="El tipo de cocina que prefiere el cliente")
+    cocina: Optional[str] = Query(None, description="El tipo de cocina que prefiere el cliente"),
+    diet: Optional[str] = Query(None, description="Dieta que necesita el cliente")
 ):
     try:
         if date:
