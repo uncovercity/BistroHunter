@@ -69,8 +69,8 @@ def obtener_restaurantes_por_ciudad(
         
  
         formula_parts = [
-            f"OR({{city}}='{city}', {{city_string}}='{city}')"
-        ]
+    f"AND(OR({{city}}='{city}', {{city_string}}='{city}'), {{es_cadena?}}=FALSE())"
+]
         
         if dia_semana:
             formula_parts.append(f"FIND('{dia_semana}', ARRAYJOIN({{day_opened}}, ', ')) > 0")
