@@ -79,11 +79,12 @@ def obtener_restaurantes_por_ciudad(
             formula_parts.append(f"FIND('{price_range}', ARRAYJOIN({{price_range}}, ', ')) > 0")
         
         if cocina:
+             
             exact_match = f"ARRAYJOIN({{grouped_categories}}, ', ') = '{cocina}'"
-            if exact_match:
-                formula_parts.append(exact_match)
-            else:
-                formula_parts.append(f"FIND('{cocina}', ARRAYJOIN({{grouped_categories}}, ', ')) > 0")
+            
+            flexible_match = f"FIND('{cocina}', ARRAYJOIN({{grouped_categories}}, ', ')) > 0"
+            
+            formula_parts.append(f"OR({exact_match}, {flexible_match})")
         
       
         filter_formula = "AND(" + ", ".join(formula_parts) + ")"
