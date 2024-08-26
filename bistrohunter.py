@@ -122,8 +122,10 @@ async def get_restaurantes(
 ):
     try:
         
-        fecha = datetime.strptime(date, "%Y-%m-%d") if date else datetime.now()
-        dia_semana = obtener_dia_semana(fecha)
+        if date:
+
+            fecha = datetime.strptime(date, "%Y-%m-%d")
+            dia_semana = obtener_dia_semana(fecha)
 
        
         restaurantes = obtener_restaurantes_por_ciudad(city, dia_semana, price_range, cocina)
