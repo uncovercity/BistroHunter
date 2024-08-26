@@ -58,7 +58,8 @@ def obtener_restaurantes_por_ciudad(
     city: str, 
     dia_semana: Optional[str]=None, 
     price_range: Optional[str] = None,
-    cocina: Optional[str] = None
+    cocina: Optional[str] = None,
+    diet: Optional[str]=None
 ) -> List[dict]:
     try:
         table_name = 'Restaurantes DB'
@@ -85,6 +86,8 @@ def obtener_restaurantes_por_ciudad(
             flexible_match = f"FIND('{cocina}', ARRAYJOIN({{grouped_categories}}, ', ')) > 0"
             
             formula_parts.append(f"OR({exact_match}, {flexible_match})")
+        if diet:
+            formula_parts.append(f"FIND('{diet}', ARRAYJOIN({{tripadvisor_dietary_restrictions}}, ', ')) > 0")
         
       
         filter_formula = "AND(" + ", ".join(formula_parts) + ")"
@@ -118,7 +121,8 @@ async def get_restaurantes(
     city: str, 
     date: Optional[str] = Query(None, description="La fecha en la que se planea visitar el restaurante"), 
     price_range: Optional[str] = Query(None, description="El rango de precios deseado para el restaurante"),
-    cocina: Optional[str] = Query(None, description="El tipo de cocina que prefiere el cliente")
+    cocina: Optional[str] = Query(None, description="El tipo de cocina que prefiere el cliente"),
+    diet: Optional[str] = Query(None, description="Dieta que necesita el cliente")
 ):
     try:
         
@@ -128,7 +132,7 @@ async def get_restaurantes(
             dia_semana = obtener_dia_semana(fecha)
 
        
-        restaurantes = obtener_restaurantes_por_ciudad(city, dia_semana, price_range, cocina)
+        restaurantes = obtener_restaurantes_por_ciudad(city, dia_semana, price_range, cocina, diet)
         
         if not restaurantes:
             return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
