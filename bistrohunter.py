@@ -52,6 +52,11 @@ def airtable_request(url: str, params: dict) -> dict:
         raise HTTPException(status_code=response.status_code, detail="Airtable API request failed")
     return response.json()
 
+def normalize_price_range(price_range):
+    if isinstance(price_range, list):
+        return ', '.join(price_range)
+    return price_range
+
 def get_restaurants_by_city(
     city: str, 
     day_of_week: Optional[str] = None, 
