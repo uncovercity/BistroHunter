@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Query, HTTPException
 from typing import Optional
-from bistrohunter import get_restaurants_by_city, get_day_of_week, RestaurantResponse
+from bistrohunter import get_restaurants_by_city, get_day_of_week, RestaurantResponse, Restaurant
 from datetime import datetime
 import logging
 
@@ -36,17 +36,16 @@ async def get_restaurantes(
         
         return RestaurantResponse(
             resultados=[
-                {
-                    "title": restaurante['fields'].get('title', 'Sin título'),
-                    "bh_message": restaurante['fields'].get('bh_message', 'Sin descripción'),
-                    "price_range": restaurante['fields'].get('price_range', 'No especificado'),
-                    "score": restaurante['fields'].get('score', 'N/A'),
-                    **({"tripadvisor_dietary_restrictions": restaurante['fields'].get('tripadvisor_dietary_restrictions')} if diet else {})
-                }
+                Restaurant(
+                    title=restaurante['fields'].get('title', 'Sin título'),
+                    bh_message=restaurante['fields'].get('bh_message', 'Sin descripción'),
+                    price_range=restaurante['fields'].get('price_range', 'No especificado'),
+                    score=restaurante['fields'].get('score', 'N/A'),
+                    tripadvisor_dietary_restrictions=restaurante['fields'].get('tripadvisor_dietary_restrictions') if diet else None
+                )
                 for restaurante in restaurantes
             ]
         )
     except Exception as e:
         logging.error(f"Error al buscar restaurantes: {e}")
         raise HTTPException(status_code=500, detail="Error al buscar restaurantes")
-
