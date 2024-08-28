@@ -1,11 +1,11 @@
 import os
 from typing import Optional, List
-from fastapi import FastAPI, Query, HTTPException, Depends
+from fastapi import FastAPI, Query, HTTPException
 from datetime import datetime
 import requests
 import logging
-from functools import lru_cache
-from pydantic import BaseModel, Field
+from functools import wraps
+from cachetools import TTLCache
 
 app = FastAPI()
 
@@ -13,6 +13,7 @@ logging.basicConfig(level=logging.INFO)
 
 BASE_ID = os.getenv('BASE_ID')
 AIRTABLE_PAT = os.getenv('AIRTABLE_PAT')
+
 
 DAYS_ES = {
     "Monday": "lunes",
@@ -24,111 +25,134 @@ DAYS_ES = {
     "Sunday": "domingo"
 }
 
-class Restaurant(BaseModel):
-    titulo: str = Field(..., alias='title')
-    descripcion: str = Field(..., alias='bh_message')
-    rango_de_precios: str = Field(..., alias='price_range')
-    puntuacion_bistrohunter: float = Field(..., alias='score')
-    opciones_alimentarias: Optional[List[str]] = Field(None, alias='tripadvisor_dietary_restrictions')
-
-class RestaurantResponse(BaseModel):
-    resultados: List[Restaurant]
-
-def get_day_of_week(date: datetime) -> str:
+def obtener_dia_semana(fecha: datetime) -> str:
     try:
-        day_of_week_en = date.strftime('%A')
-        return DAYS_ES.get(day_of_week_en, day_of_week_en).lower()
+        dia_semana_en = fecha.strftime('%A')  
+        dia_semana_es = DAYS_ES.get(dia_semana_en, dia_semana_en)  
+        return dia_semana_es.lower()
     except Exception as e:
-        logging.error(f"Error getting day of week: {e}")
-        raise HTTPException(status_code=500, detail="Error processing date")
+        logging.error(f"Error al obtener el día de la semana: {e}")
+        raise HTTPException(status_code=500, detail="Error al procesar la fecha")
 
-@lru_cache(maxsize=1)
-def get_airtable_headers():
-    return {"Authorization": f"Bearer {AIRTABLE_PAT}"}
 
-def airtable_request(url: str, params: dict) -> dict:
-    response = requests.get(url, headers=get_airtable_headers(), params=params)
-    if response.status_code != 200:
-        raise HTTPException(status_code=response.status_code, detail="Airtable API request failed")
-    return response.json()
+restaurantes_cache = TTLCache(maxsize=10000, ttl=60*30)
 
-def normalize_price_range(price_range):
-    if isinstance(price_range, list):
-        return ', '.join(price_range)
-    return price_range
+def cache_airtable_request(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        cache_key = f"{func.__name__}:{args}:{kwargs}"
+        if cache_key in restaurantes_cache:
+            return restaurantes_cache[cache_key]
+        result = func(*args, **kwargs)
+        restaurantes_cache[cache_key] = result
+        return result
+    return wrapper
 
-def get_restaurants_by_city(
+@cache_airtable_request
+def airtable_request(url, headers, params):
+    response = requests.get(url, headers=headers, params=params)
+    return response.json() if response.status_code == 200 else None
+
+@cache_airtable_request
+def obtener_restaurantes_por_ciudad(
     city: str, 
-    day_of_week: Optional[str] = None, 
+    dia_semana: Optional[str]=None, 
     price_range: Optional[str] = None,
-    cuisine: Optional[str] = None,
-    diet: Optional[str] = None,
-    dish: Optional[str] = None
+    cocina: Optional[str] = None,
+    diet: Optional[str]= None,
+    dish: Optional[str]= None
 ) -> List[dict]:
-    table_name = 'Restaurantes DB'
-    url = f"https://api.airtable.com/v0/{BASE_ID}/{table_name}"
+    try:
+        table_name = 'Restaurantes DB'
+        url = f"https://api.airtable.com/v0/{BASE_ID}/{table_name}"
+        headers = {
+            "Authorization": f"Bearer {AIRTABLE_PAT}",
+        }
+        
+        formula_parts = [
+    f"OR({{city}}='{city}', {{city_string}}='{city}')"
+]
+        
+        if dia_semana:
+            formula_parts.append(f"FIND('{dia_semana}', ARRAYJOIN({{day_opened}}, ', ')) > 0")
 
-    formula_parts = [f"OR({{city}}='{city}', {{city_string}}='{city}')"]
+        if price_range:
+            formula_parts.append(f"FIND('{price_range}', ARRAYJOIN({{price_range}}, ', ')) > 0")
+        
+        if cocina:
+             
+            exact_match = f"ARRAYJOIN({{grouped_categories}}, ', ') = '{cocina}'"
+            
+            flexible_match = f"FIND('{cocina}', ARRAYJOIN({{grouped_categories}}, ', ')) > 0"
+            
+            formula_parts.append(f"OR({exact_match}, {flexible_match})")
 
-    if day_of_week:
-        formula_parts.append(f"FIND('{day_of_week}', ARRAYJOIN({{day_opened}}, ', ')) > 0")
-    if price_range:
-        formula_parts.append(f"FIND('{price_range}', ARRAYJOIN({{price_range}}, ', ')) > 0")
-    if cuisine:
-        formula_parts.append(f"OR(ARRAYJOIN({{grouped_categories}}, ', ') = '{cuisine}', FIND('{cuisine}', ARRAYJOIN({{grouped_categories}}, ', ')) > 0)")
-    if diet:
-        formula_parts.append(f"FIND('{diet}', ARRAYJOIN({{tripadvisor_dietary_restrictions}}, ', ')) > 0")
-    if dish:
-        formula_parts.append(f"FIND('{dish}', ARRAYJOIN({{comida_[TESTING]}}, ', ')) > 0")
+        if diet:
+            formula_parts.append(f"FIND('{diet}', ARRAYJOIN({{tripadvisor_dietary_restrictions}}, ', ')) > 0")
 
-    filter_formula = "AND(" + ", ".join(formula_parts) + ")"
-    logging.info(f"Filter formula: {filter_formula}")
+        if dish:
+            formula_parts.append(f"FIND('{dish}', ARRAYJOIN({{comida_[TESTING]}}, ', ')) > 0")
 
-    params = {
-        "filterByFormula": filter_formula,
-        "sort[0][field]": "score",
-        "sort[0][direction]": "desc",
-        "maxRecords": 3
-    }
+      
+        filter_formula = "AND(" + ", ".join(formula_parts) + ")"
+        
+     
+        logging.info(f"Fórmula de filtro construida: {filter_formula}")
+        
+        params = {
+            "filterByFormula": filter_formula,
+            "sort[0][field]": "score",
+            "sort[0][direction]": "desc",
+            "maxRecords": 3
+        }
 
-    response_data = airtable_request(url, params)
-    return response_data.get('records', [])
+        response_data = airtable_request(url, headers, params)
+        if response_data:
+            return response_data.get('records', [])
+        else:
+            logging.error("Error al obtener restaurantes de la ciudad")
+            return []
+    except Exception as e:
+        logging.error(f"Error al obtener restaurantes de la ciudad: {e}")
+        raise HTTPException(status_code=500, detail="Error al obtener restaurantes de la ciudad")
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to the Restaurant Search API"}
+    return {"message": "Bienvenido a la API de búsqueda de restaurantes"}
 
-@app.get("/api/getRestaurants", response_model=RestaurantResponse)
-async def get_restaurants(
+@app.get("/api/getRestaurants")
+async def get_restaurantes(
     city: str, 
-    date: Optional[str] = Query(None, description="Date of planned restaurant visit"),
-    price_range: Optional[str] = Query(None, description="Desired price range"),
-    cuisine: Optional[str] = Query(None, description="Preferred cuisine type"),
-    diet: Optional[str] = Query(None, description="Dietary requirements"),
-    dish: Optional[str] = Query(None, description="Specific dish query")
+    date: Optional[str] = Query(None, description="La fecha en la que se planea visitar el restaurante"), 
+    price_range: Optional[str] = Query(None, description="El rango de precios deseado para el restaurante"),
+    cocina: Optional[str] = Query(None, description="El tipo de cocina que prefiere el cliente"),
+    diet: Optional[str] = Query(None, description="Dieta que necesita el cliente"),
+    dish: Optional[str] = Query(None, description = "Plato por el que puede preguntar un cliente específicamente")
 ):
-    day_of_week = None
-    if date:
-        try:
-            date_obj = datetime.strptime(date, "%Y-%m-%d")
-            day_of_week = get_day_of_week(date_obj)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
+    try:
+        
+        if date:
 
-    restaurants = get_restaurants_by_city(city, day_of_week, price_range, cuisine, diet, dish)
+            fecha = datetime.strptime(date, "%Y-%m-%d")
+            dia_semana = obtener_dia_semana(fecha)
 
-    if not restaurants:
-        raise HTTPException(status_code=404, detail="No restaurants found with the applied filters.")
-
-    return RestaurantResponse(
-        resultados=[
-            Restaurant(
-                title=restaurant['fields'].get('title', 'Untitled'),
-                bh_message=restaurant['fields'].get('bh_message', 'No description'),
-                price_range=restaurant['fields'].get('price_range', 'Not specified'),
-                score=restaurant['fields'].get('score', 'N/A'),
-                tripadvisor_dietary_restrictions=restaurant['fields'].get('tripadvisor_dietary_restrictions') if diet else None
-            )
-            for restaurant in restaurants
-        ]
-    )
+       
+        restaurantes = obtener_restaurantes_por_ciudad(city, dia_semana, price_range, cocina, diet, dish)
+        
+        if not restaurantes:
+            return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
+        
+        return {
+            "resultados": [
+                {
+                    "titulo": restaurante['fields'].get('title', 'Sin título'),
+                    "descripcion": restaurante['fields'].get('bh_message', 'Sin descripción'),
+                    "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
+                    "puntuacion_bistrohunter": restaurante['fields'].get('score', 'N/A')
+                }
+                for restaurante in restaurantes
+            ]
+        }
+    except Exception as e:
+        logging.error(f"Error al buscar restaurantes: {e}")
+        raise HTTPException(status_code=500, detail="Error al buscar restaurantes")
