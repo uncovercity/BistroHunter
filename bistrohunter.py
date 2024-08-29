@@ -137,7 +137,7 @@ def obtener_restaurantes_por_ciudad(
         if dish:
             formula_parts.append(f"FIND('{dish}', ARRAYJOIN({{comida_[TESTING]}}, ', ')) > 0")
         
-
+   
         if zona:
             location = obtener_coordenadas(zona, city)
             if location:
