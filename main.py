@@ -17,8 +17,8 @@ async def get_restaurantes(
     price_range: Optional[str] = Query(None, description="El rango de precios deseado para el restaurante"),
     cocina: Optional[str] = Query(None, description="El tipo de cocina que prefiere el cliente"),
     diet: Optional[str] = Query(None, description="Dieta que necesita el cliente"),
-    dish: Optional[str] = Query(None, description = "Plato por el que puede preguntar un cliente específicamente"),
-    zona: Optional[str]=None
+    dish: Optional[str] = Query(None, description="Plato por el que puede preguntar un cliente específicamente"),
+    zona: Optional[str] = Query(None, description="Zona específica dentro de la ciudad")
 ):
     try:
         dia_semana = None
@@ -27,24 +27,50 @@ async def get_restaurantes(
             dia_semana = obtener_dia_semana(fecha)
         
         # Obtener los restaurantes filtrados y ordenados desde Airtable
-        restaurantes = obtener_restaurantes_por_ciudad(city, dia_semana, price_range, cocina, diet, dish)
+        restaurantes = obtener_restaurantes_por_ciudad(city, dia_semana, price_range, cocina, diet, dish, zona)
         
         if not restaurantes:
             return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
         
-        return {
-            "resultados": [
+        # Si se especificó una zona, obtener las coordenadas y calcular las distancias
+        if zona:
+            location = obtener_coordenadas(zona, city)
+            if not location:
+                raise HTTPException(status_code=404, detail="Zona no encontrada.")
+            
+            lat_centro = location['lat']
+            lon_centro = location['lng']
+
+            resultados = []
+            for restaurante in restaurantes:
+                lat_restaurante = float(restaurante['fields'].get('location/lat', 0))
+                lon_restaurante = float(restaurante['fields'].get('location/lng', 0))
+                distancia = haversine(lon_centro, lat_centro, lon_restaurante, lat_restaurante)
+                if distancia <= 1.0:  # Filtrar solo los que estén dentro de 1 km
+                    resultados.append({
+                        "titulo": restaurante['fields'].get('title', 'Sin título'),
+                        "descripcion": restaurante['fields'].get('bh_message', 'Sin descripción'),
+                        "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
+                        "url": restaurante['fields'].get('url', 'No especificado'),
+                        "puntuacion_bistrohunter": restaurante['fields'].get('score', 'N/A'),
+                        "distancia": f"{distancia:.2f} km",
+                        "opciones_alimentarias": restaurante['fields'].get('tripadvisor_dietary_restrictions') if diet else None
+                    })
+        else:
+            resultados = [
                 {
                     "titulo": restaurante['fields'].get('title', 'Sin título'),
                     "descripcion": restaurante['fields'].get('bh_message', 'Sin descripción'),
                     "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
                     "url": restaurante['fields'].get('url', 'No especificado'),
                     "puntuacion_bistrohunter": restaurante['fields'].get('score', 'N/A'),
-                    **({"opciones_alimentarias": restaurante['fields'].get('tripadvisor_dietary_restrictions')} if diet else {})
+                    "opciones_alimentarias": restaurante['fields'].get('tripadvisor_dietary_restrictions') if diet else None
                 }
                 for restaurante in restaurantes
             ]
-        }
+
+        return {"resultados": resultados}
+        
     except Exception as e:
         logging.error(f"Error al buscar restaurantes: {e}")
         raise HTTPException(status_code=500, detail="Error al buscar restaurantes")
