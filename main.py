@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Query, HTTPException
 from typing import Optional
-from bistrohunter import obtener_restaurantes_por_ciudad, obtener_dia_semana
+from bistrohunter import obtener_restaurantes_por_ciudad, obtener_dia_semana, haversine, obtener_coordenadas
 import logging
 from datetime import datetime
 
@@ -17,7 +17,8 @@ async def get_restaurantes(
     price_range: Optional[str] = Query(None, description="El rango de precios deseado para el restaurante"),
     cocina: Optional[str] = Query(None, description="El tipo de cocina que prefiere el cliente"),
     diet: Optional[str] = Query(None, description="Dieta que necesita el cliente"),
-    dish: Optional[str] = Query(None, description = "Plato por el que puede preguntar un cliente específicamente")
+    dish: Optional[str] = Query(None, description = "Plato por el que puede preguntar un cliente específicamente"),
+    zona: Optional[str]=None
 ):
     try:
         dia_semana = None
@@ -37,6 +38,7 @@ async def get_restaurantes(
                     "titulo": restaurante['fields'].get('title', 'Sin título'),
                     "descripcion": restaurante['fields'].get('bh_message', 'Sin descripción'),
                     "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
+                    "url": restaurante['fields'].get('url', 'No especificado'),
                     "puntuacion_bistrohunter": restaurante['fields'].get('score', 'N/A'),
                     **({"opciones_alimentarias": restaurante['fields'].get('tripadvisor_dietary_restrictions')} if diet else {})
                 }
