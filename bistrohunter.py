@@ -83,7 +83,7 @@ def airtable_request(url, headers, params):
     return response.json() if response.status_code == 200 else None
 
 @cache_airtable_request
-def obtener_limites_geograficos(lat: float, lon: float, distancia_km: float = 2.0) -> dict:
+def obtener_limites_geograficos(lat: float, lon: float, distancia_km: float = 1.0) -> dict:
     # Aquí puedes calcular los límites usando una aproximación simple basada en la relación aproximada de grados a km.
     # 1 grado de latitud ≈ 111 km, pero 1 grado de longitud varía con la latitud.
     # Distancia fija de 1 km (~0.009 grados de latitud)
