@@ -12,9 +12,9 @@ app = FastAPI()
 
 logging.basicConfig(level=logging.INFO)
 
-BASE_ID = 'appjiZRijEu48x8kL'
-AIRTABLE_PAT = 'patah3yGyUKemcYSS.660adc5d9c6ee4e8c22f77deabc345f02b2d6fd09f35a9dc9506e5d5ddcfba87'
-GOOGLE_MAPS_API_KEY = 'AIzaSyC6au7kvDj-st-b41ULpFQ4D0PE2mJtbcI'
+BASE_ID = os.getenv('BASE_ID')
+AIRTABLE_PAT = os.getenv('AIRTABLE_PAT')
+GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY')
 
 
 DAYS_ES = {
