@@ -130,7 +130,7 @@ def obtener_restaurantes_por_ciudad(
             "filterByFormula": filter_formula,
             "sort[0][field]": "score",
             "sort[0][direction]": "desc",
-            "maxRecords": 100
+            "maxRecords": 1000
         }
 
         response_data = airtable_request(url, headers, params)
