@@ -205,12 +205,9 @@ async def procesar_variables(request: Request):
         if not client_conversation:
             raise HTTPException(status_code=400, detail="La consulta en texto es obligatoria.")
 
-        # Aquí podrías pasar el texto directamente a GPT para que procese la consulta y extraiga variables,
-        # o puedes realizar cualquier otro procesamiento necesario.
-
-        # En este caso, asumimos que GPT ya tiene un prompt para extraer las variables, por lo que solo
-        # devolvemos la consulta recibida.
-        return {"mensaje": "Consulta recibida y procesada correctamente", "client_conversation": client_conversation}
+        # Enviar el texto directamente a GPT para que lo procese y gestione la llamada a get_restaurantes
+        # Aquí solo retornamos el texto para que GPT lo use.
+        return {"mensaje": "Consulta recibida y enviada a GPT correctamente", "client_conversation": client_conversation}
     
     except Exception as e:
         logging.error(f"Error al procesar la consulta: {e}")
