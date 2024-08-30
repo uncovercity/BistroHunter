@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Query, HTTPException
 from typing import Optional
-from bistrohunter import obtener_restaurantes_por_ciudad, obtener_dia_semana, obtener_coordenadas, haversine
+from bistrohunter import obtener_restaurantes_por_ciudad, obtener_dia_semana, haversine
 import logging
 from datetime import datetime
 
@@ -26,39 +26,25 @@ async def get_restaurantes(
             fecha = datetime.strptime(date, "%Y-%m-%d")
             dia_semana = obtener_dia_semana(fecha)
         
-        # Obtener los restaurantes filtrados y ordenados desde Airtable
+        
         restaurantes = obtener_restaurantes_por_ciudad(city, dia_semana, price_range, cocina, diet, dish, zona)
         
         if not restaurantes:
             return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
 
-        # Preparar los resultados
-        resultados = []
-        for restaurante in restaurantes:
-            resultado = {
+        
+        resultados = [
+            {
                 "titulo": restaurante['fields'].get('title', 'Sin título'),
                 "descripcion": restaurante['fields'].get('bh_message', 'Sin descripción'),
                 "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
                 "url": restaurante['fields'].get('url', 'No especificado'),
                 "puntuacion_bistrohunter": restaurante['fields'].get('score', 'N/A'),
+                "distancia": restaurante.get('distancia', 'No calculado'),
+                "opciones_alimentarias": restaurante['fields'].get('tripadvisor_dietary_restrictions') if diet else None
             }
-            if zona:
-                location = obtener_coordenadas(zona, city)
-                if not location:
-                    raise HTTPException(status_code=404, detail="Zona no encontrada.")
-                
-                lat_centro = location['lat']
-                lon_centro = location['lng']
-                lat_restaurante = float(restaurante['fields'].get('location/lat', 0))
-                lon_restaurante = float(restaurante['fields'].get('location/lng', 0))
-                resultado["distancia"] = f"{haversine(lon_centro, lat_centro, lon_restaurante, lat_restaurante):.2f} km"
-            else:
-                resultado["distancia"] = "No calculado"
-            
-            if diet:
-                resultado["opciones_alimentarias"] = restaurante['fields'].get('tripadvisor_dietary_restrictions')
-            
-            resultados.append(resultado)
+            for restaurante in restaurantes
+        ]
 
         return {"resultados": resultados}
         
