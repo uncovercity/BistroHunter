@@ -27,16 +27,6 @@ DAYS_ES = {
     "Sunday": "domingo"
 }
 
-DAYS_ES = {
-    "Monday": "lunes",
-    "Tuesday": "martes",
-    "Wednesday": "miércoles",
-    "Thursday": "jueves",
-    "Friday": "viernes",
-    "Saturday": "sábado",
-    "Sunday": "domingo"
-}
-
 def obtener_dia_semana(fecha: datetime) -> str:
     try:
         dia_semana_en = fecha.strftime('%A')  
@@ -213,11 +203,9 @@ def enviar_respuesta_a_n8n(resultados):
 @app.post("/procesar-variables")
 async def procesar_variables(request: Request):
     try:
-        # Recibir los datos enviados desde n8n
         data = await request.json()
         logging.info(f"Datos recibidos: {data}")
         
-        # Extraer las variables opcionales de los datos recibidos
         city = data.get('city')
         date = data.get('date')
         price_range = data.get('price_range')
@@ -226,11 +214,9 @@ async def procesar_variables(request: Request):
         dish = data.get('dish')
         zona = data.get('zona')
 
-        # Validación básica: al menos una ciudad debe estar presente
         if not city:
             raise HTTPException(status_code=400, detail="La variable 'city' es obligatoria.")
 
-        # Procesar la fecha si se proporciona
         dia_semana = None
         if date:
             try:
@@ -239,7 +225,6 @@ async def procesar_variables(request: Request):
             except ValueError:
                 raise HTTPException(status_code=400, detail="La fecha proporcionada no tiene el formato correcto (YYYY-MM-DD).")
 
-        # Llamar a la función obtener_restaurantes_por_ciudad con los parámetros recibidos
         restaurantes = obtener_restaurantes_por_ciudad(
             city=city,
             dia_semana=dia_semana,
