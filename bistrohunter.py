@@ -197,69 +197,24 @@ def enviar_respuesta_a_n8n(resultados):
 @app.post("/procesar-variables")
 async def procesar_variables(request: Request):
     try:
+        # Recibir el texto completo de la consulta desde n8n
         data = await request.json()
-        logging.info(f"Datos recibidos: {data}")
-        
-        city = data.get('city')
-        date = data.get('date')
-        price_range = data.get('price_range')
-        cocina = data.get('cocina')
-        diet = data.get('diet')
-        dish = data.get('dish')
-        zona = data.get('zona')
+        client_conversation = data.get('client_conversation')
+        logging.info(f"Consulta recibida: {client_conversation}")
 
-        # Comprobar y registrar todas las variables recibidas para debug
-        logging.info(f"city: {city}, date: {date}, price_range: {price_range}, cocina: {cocina}, diet: {diet}, dish: {dish}, zona: {zona}")
+        if not client_conversation:
+            raise HTTPException(status_code=400, detail="La consulta en texto es obligatoria.")
 
-        if not city:
-            raise HTTPException(status_code=400, detail="La variable 'city' es obligatoria.")
+        # Aquí podrías pasar el texto directamente a GPT para que procese la consulta y extraiga variables,
+        # o puedes realizar cualquier otro procesamiento necesario.
 
-        dia_semana = None
-        if date:
-            try:
-                fecha = datetime.strptime(date, "%Y-%m-%d")
-                dia_semana = obtener_dia_semana(fecha)
-            except ValueError:
-                raise HTTPException(status_code=400, detail="La fecha proporcionada no tiene el formato correcto (YYYY-MM-DD).")
-
-        # Llamada a la función principal con todos los parámetros
-        restaurantes = obtener_restaurantes_por_ciudad(
-            city=city,
-            dia_semana=dia_semana,
-            price_range=price_range,
-            cocina=cocina,
-            diet=diet,
-            dish=dish,
-            zona=zona
-        )
-        
-        if not restaurantes:
-            return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
-
-        resultados = [
-            {
-                "titulo": restaurante['fields'].get('title', 'Sin título'),
-                "descripcion": restaurante['fields'].get('bh_message', 'Sin descripción'),
-                "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
-                "url": restaurante['fields'].get('url', 'No especificado'),
-                "puntuacion_bistrohunter": restaurante['fields'].get('score', 'N/A'),
-                "distancia": (
-                    f"{haversine(float(restaurante['fields'].get('location/lng', 0)), float(restaurante['fields'].get('location/lat', 0)), lat_centro, lon_centro):.2f} km"
-                    if zona and 'location/lng' in restaurante['fields'] and 'location/lat' in restaurante['fields'] else "No calculado"
-                ),
-                "opciones_alimentarias": restaurante['fields'].get('tripadvisor_dietary_restrictions') if diet else None
-            }
-            for restaurante in restaurantes
-        ]
-
-        # Enviar los resultados al Webhook de n8n
-        enviar_respuesta_a_n8n(resultados)
-
-        return {"mensaje": "Datos procesados y respuesta generada correctamente", "resultados": resultados}
+        # En este caso, asumimos que GPT ya tiene un prompt para extraer las variables, por lo que solo
+        # devolvemos la consulta recibida.
+        return {"mensaje": "Consulta recibida y procesada correctamente", "client_conversation": client_conversation}
     
     except Exception as e:
-        logging.error(f"Error al procesar variables: {e}")
-        return {"error": "Ocurrió un error al procesar las variables"}
+        logging.error(f"Error al procesar la consulta: {e}")
+        return {"error": "Ocurrió un error al procesar la consulta"}
 
 @app.get("/")
 async def root():
