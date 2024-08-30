@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Query, HTTPException
 from typing import Optional
-from bistrohunter import obtener_restaurantes_por_ciudad, obtener_dia_semana, haversine
+from bistrohunter import obtener_restaurantes_por_ciudad, obtener_dia_semana, haversine, enviar_respuesta_a_n8n
 import logging
 from datetime import datetime
 
@@ -26,13 +26,13 @@ async def get_restaurantes(
             fecha = datetime.strptime(date, "%Y-%m-%d")
             dia_semana = obtener_dia_semana(fecha)
         
-        
+        # Obtener los restaurantes aplicando los filtros
         restaurantes = obtener_restaurantes_por_ciudad(city, dia_semana, price_range, cocina, diet, dish, zona)
         
         if not restaurantes:
             return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
 
-        
+        # Formatear los resultados
         resultados = [
             {
                 "titulo": restaurante['fields'].get('title', 'Sin título'),
@@ -45,6 +45,9 @@ async def get_restaurantes(
             }
             for restaurante in restaurantes
         ]
+
+        # Enviar los resultados al Webhook de n8n
+        enviar_respuesta_a_n8n(resultados)
 
         return {"resultados": resultados}
         
