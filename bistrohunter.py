@@ -190,6 +190,15 @@ def obtener_restaurantes_por_ciudad(
     except Exception as e:
         logging.error(f"Error al obtener restaurantes de la ciudad: {e}")
         raise HTTPException(status_code=500, detail="Error al obtener restaurantes de la ciudad")
+    
+def enviar_respuesta_a_n8n(resultados):
+    try:
+        response = requests.post(N8N_WEBHOOK_URL, json={"resultados": resultados})
+        response.raise_for_status()
+        logging.info("Resultados enviados a n8n con éxito.")
+    except requests.exceptions.HTTPError as err:
+        logging.error(f"Error al enviar resultados a n8n: {err}")
+        raise
 
 
 @app.get("/")
@@ -203,7 +212,7 @@ async def get_restaurantes(
     price_range: Optional[str] = Query(None, description="El rango de precios deseado para el restaurante"),
     cocina: Optional[str] = Query(None, description="El tipo de cocina que prefiere el cliente"),
     diet: Optional[str] = Query(None, description="Dieta que necesita el cliente"),
-    dish: Optional[str] = Query(None, description = "Plato por el que puede preguntar un cliente específicamente"),
+    dish: Optional[str] = Query(None, description="Plato por el que puede preguntar un cliente específicamente"),
     zona: Optional[str] = Query(None, description="Zona específica dentro de la ciudad")
 ):
     try:
@@ -216,20 +225,25 @@ async def get_restaurantes(
         
         if not restaurantes:
             return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
+
+        # Formatear resultados
+        resultados = [
+            {
+                "titulo": restaurante['fields'].get('title', 'Sin título'),
+                "descripcion": restaurante['fields'].get('bh_message', 'Sin descripción'),
+                "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
+                "url": restaurante['fields'].get('url', 'No especificado'),
+                "puntuacion_bistrohunter": restaurante['fields'].get('score', 'N/A'),
+                "distancia": f"{haversine(lon_centro, lat_centro, float(restaurante['fields'].get('location/lng', 0)), float(restaurante['fields'].get('location/lat', 0))):.2f} km" if zona else "No calculado"
+            }
+            for restaurante in restaurantes
+        ]
+
+        # Enviar los resultados al Webhook de n8n
+        enviar_respuesta_a_n8n(resultados)
+
+        return {"resultados": resultados}
         
-        return {
-            "resultados": [
-                {
-                    "titulo": restaurante['fields'].get('title', 'Sin título'),
-                    "descripcion": restaurante['fields'].get('bh_message', 'Sin descripción'),
-                    "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
-                    "url": restaurante['fields'].get('url', 'No especificado'),
-                    "puntuacion_bistrohunter": restaurante['fields'].get('score', 'N/A'),
-                    "distancia": f"{haversine(lon_centro, lat_centro, float(restaurante['fields'].get('location/lng', 0)), float(restaurante['fields'].get('location/lat', 0))):.2f} km" if zona else "No calculado"
-                }
-                for restaurante in restaurantes
-            ]
-        }
     except Exception as e:
         logging.error(f"Error al buscar restaurantes: {e}")
         raise HTTPException(status_code=500, detail="Error al buscar restaurantes")
