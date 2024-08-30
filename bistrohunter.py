@@ -110,17 +110,18 @@ def obtener_restaurantes_por_ciudad(
         headers = {
             "Authorization": f"Bearer {AIRTABLE_PAT}",
         }
-        
+
+        # Construir los filtros constantes
         formula_parts = [
             f"OR({{city}}='{city}', {{city_string}}='{city}')"
         ]
-        
+
         if dia_semana:
             formula_parts.append(f"FIND('{dia_semana}', ARRAYJOIN({{day_opened}}, ', ')) > 0")
 
         if price_range:
             formula_parts.append(f"FIND('{price_range}', ARRAYJOIN({{price_range}}, ', ')) > 0")
-        
+
         if cocina:
             exact_match = f"ARRAYJOIN({{grouped_categories}}, ', ') = '{cocina}'"
             flexible_match = f"FIND('{cocina}', ARRAYJOIN({{grouped_categories}}, ', ')) > 0"
@@ -133,50 +134,58 @@ def obtener_restaurantes_por_ciudad(
 
         if dish:
             formula_parts.append(f"FIND('{dish}', ARRAYJOIN({{comida_[TESTING]}}, ', ')) > 0")
-        
+
         restaurantes_encontrados = []
         distancia_km = 2.0
-        
+        location = None
+
+        if zona:
+            location = obtener_coordenadas(zona, city)
+            if not location:
+                raise HTTPException(status_code=404, detail="Zona no encontrada.")
+            lat_centro = location['lat']
+            lon_centro = location['lng']
+
+    
         while len(restaurantes_encontrados) < 3:
-            
-            formula_parts_zona = formula_parts[:]
-            
-            if zona:
-                location = obtener_coordenadas(zona, city)
-                if location:
-                    limites = obtener_limites_geograficos(location['lat'], location['lng'], distancia_km)
-                    formula_parts_zona.append(f"AND({{location/lat}} >= {limites['lat_min']}, {{location/lat}} <= {limites['lat_max']})")
-                    formula_parts_zona.append(f"AND({{location/lng}} >= {limites['lon_min']}, {{location/lng}} <= {limites['lon_max']})")
-            
+
+            formula_parts_zona = formula_parts
+
+            if zona and location:
+                limites = obtener_limites_geograficos(lat_centro, lon_centro, distancia_km)
+                formula_parts_zona.append(f"AND({{location/lat}} >= {limites['lat_min']}, {{location/lat}} <= {limites['lat_max']})")
+                formula_parts_zona.append(f"AND({{location/lng}} >= {limites['lon_min']}, {{location/lng}} <= {limites['lon_max']})")
+
             filter_formula = "AND(" + ", ".join(formula_parts_zona) + ")"
             logging.info(f"Fórmula de filtro construida: {filter_formula} para distancia {distancia_km} km")
-            
+
             params = {
                 "filterByFormula": filter_formula,
                 "sort[0][field]": "score",
                 "sort[0][direction]": "desc",
-                "maxRecords": 100 
+                "maxRecords": 3
             }
 
             response_data = airtable_request(url, headers, params)
             if response_data and 'records' in response_data:
+                
                 restaurantes_filtrados = [
                     restaurante for restaurante in response_data['records']
                     if restaurante not in restaurantes_encontrados  # Evitar duplicados
                 ]
                 restaurantes_encontrados.extend(restaurantes_filtrados)
 
+            
             distancia_km += 2.0
 
+            
             if distancia_km > 20:
                 break
-    
+
         if zona and location:
-            lat_centro = location['lat']
-            lon_centro = location['lng']
             restaurantes_encontrados.sort(key=lambda r: haversine(lon_centro, lat_centro, float(r['fields'].get('location/lng', 0)), float(r['fields'].get('location/lat', 0))))
-        
-        return restaurantes_encontrados[:3] 
+
+        return restaurantes_encontrados[:3]
 
     except Exception as e:
         logging.error(f"Error al obtener restaurantes de la ciudad: {e}")
