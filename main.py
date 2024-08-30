@@ -26,13 +26,13 @@ async def get_restaurantes(
             fecha = datetime.strptime(date, "%Y-%m-%d")
             dia_semana = obtener_dia_semana(fecha)
         
-        # Obtener los restaurantes aplicando los filtros
+    
         restaurantes = obtener_restaurantes_por_ciudad(city, dia_semana, price_range, cocina, diet, dish, zona)
         
         if not restaurantes:
             return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
 
-        # Formatear los resultados
+        
         resultados = [
             {
                 "titulo": restaurante['fields'].get('title', 'Sin título'),
@@ -46,7 +46,7 @@ async def get_restaurantes(
             for restaurante in restaurantes
         ]
 
-        # Enviar los resultados al Webhook de n8n
+        
         enviar_respuesta_a_n8n(resultados)
 
         return {"resultados": resultados}
@@ -58,11 +58,11 @@ async def get_restaurantes(
 @app.post("/procesar-variables")
 async def procesar_variables(request: Request):
     try:
-        # Recibir los datos enviados desde n8n
+        
         data = await request.json()
         logging.info(f"Datos recibidos: {data}")
         
-        # Extraer las variables opcionales de los datos recibidos
+        
         city = data.get('city')
         date = data.get('date')
         price_range = data.get('price_range')
@@ -71,11 +71,11 @@ async def procesar_variables(request: Request):
         dish = data.get('dish')
         zona = data.get('zona')
 
-        # Validación básica: al menos una ciudad debe estar presente
+        
         if not city:
             raise HTTPException(status_code=400, detail="La variable 'city' es obligatoria.")
 
-        # Procesar la fecha si se proporciona
+        
         dia_semana = None
         if date:
             try:
@@ -84,7 +84,7 @@ async def procesar_variables(request: Request):
             except ValueError:
                 raise HTTPException(status_code=400, detail="La fecha proporcionada no tiene el formato correcto (YYYY-MM-DD).")
 
-        # Llamar a la función obtener_restaurantes_por_ciudad con los parámetros recibidos
+        
         restaurantes = obtener_restaurantes_por_ciudad(
             city=city,
             dia_semana=dia_semana,
@@ -98,7 +98,7 @@ async def procesar_variables(request: Request):
         if not restaurantes:
             return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
         
-        # Formatear los resultados
+        
         resultados = [
             {
                 "titulo": restaurante['fields'].get('title', 'Sin título'),
@@ -115,10 +115,10 @@ async def procesar_variables(request: Request):
             for restaurante in restaurantes
         ]
 
-        # Enviar los resultados al Webhook de n8n
+        
         enviar_respuesta_a_n8n(resultados)
 
-        # Devolver la respuesta al cliente (n8n)
+        
         return {"mensaje": "Datos procesados y respuesta generada correctamente", "resultados": resultados}
     
     except Exception as e:
