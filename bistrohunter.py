@@ -29,8 +29,8 @@ DAYS_ES = {
 
 def obtener_dia_semana(fecha: datetime) -> str:
     try:
-        dia_semana_en = fecha.strftime('%A')  
-        dia_semana_es = DAYS_ES.get(dia_semana_en, dia_semana_en)  
+        dia_semana_en = fecha.strftime('%A')
+        dia_semana_es = DAYS_ES.get(dia_semana_en, dia_semana_en)
         return dia_semana_es.lower()
     except Exception as e:
         logging.error(f"Error al obtener el día de la semana: {e}")
@@ -38,10 +38,10 @@ def obtener_dia_semana(fecha: datetime) -> str:
 
 def haversine(lon1, lat1, lon2, lat2):
     lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-    dlon = lon2 - lon1 
-    dlat = lat2 - lat1 
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
     a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-    c = 2 * asin(sqrt(a)) 
+    c = 2 * asin(sqrt(a))
     km = 6367 * c
     return km
 
@@ -86,7 +86,6 @@ def airtable_request(url, headers, params):
 def obtener_limites_geograficos(lat: float, lon: float, distancia_km: float = 2.0) -> dict:
     lat_delta = distancia_km / 111.0
     lon_delta = distancia_km / (111.0 * cos(radians(lat)))
-    
     return {
         "lat_min": lat - lat_delta,
         "lat_max": lat + lat_delta,
@@ -96,8 +95,8 @@ def obtener_limites_geograficos(lat: float, lon: float, distancia_km: float = 2.
 
 @cache_airtable_request
 def obtener_restaurantes_por_ciudad(
-    city: str, 
-    dia_semana: Optional[str] = None, 
+    city: str,
+    dia_semana: Optional[str] = None,
     price_range: Optional[str] = None,
     cocina: Optional[str] = None,
     diet: Optional[str] = None,
@@ -146,11 +145,8 @@ def obtener_restaurantes_por_ciudad(
             lat_centro = location['lat']
             lon_centro = location['lng']
 
-    
         while len(restaurantes_encontrados) < 3:
-
-            formula_parts_zona = formula_parts
-
+            formula_parts_zona = formula_parts[:]
             if zona and location:
                 limites = obtener_limites_geograficos(lat_centro, lon_centro, distancia_km)
                 formula_parts_zona.append(f"AND({{location/lat}} >= {limites['lat_min']}, {{location/lat}} <= {limites['lat_max']})")
@@ -168,29 +164,27 @@ def obtener_restaurantes_por_ciudad(
 
             response_data = airtable_request(url, headers, params)
             if response_data and 'records' in response_data:
-                
                 restaurantes_filtrados = [
                     restaurante for restaurante in response_data['records']
                     if restaurante not in restaurantes_encontrados  # Evitar duplicados
                 ]
                 restaurantes_encontrados.extend(restaurantes_filtrados)
 
-            
             distancia_km += 2.0
 
-            
             if distancia_km > 20:
                 break
 
         if zona and location:
-            restaurantes_encontrados.sort(key=lambda r: haversine(lon_centro, lat_centro, float(r['fields'].get('location/lng', 0)), float(r['fields'].get('location/lat', 0))))
+            restaurantes_encontrados.sort(
+                key=lambda r: haversine(lon_centro, lat_centro, float(r['fields'].get('location/lng', 0)), float(r['fields'].get('location/lat', 0))))
 
         return restaurantes_encontrados[:3]
 
     except Exception as e:
         logging.error(f"Error al obtener restaurantes de la ciudad: {e}")
         raise HTTPException(status_code=500, detail="Error al obtener restaurantes de la ciudad")
-    
+
 def enviar_respuesta_a_n8n(resultados):
     try:
         response = requests.post(N8N_WEBHOOK_URL, json={"resultados": resultados})
@@ -205,7 +199,7 @@ async def procesar_variables(request: Request):
     try:
         data = await request.json()
         logging.info(f"Datos recibidos: {data}")
-        
+
         city = data.get('city')
         date = data.get('date')
         price_range = data.get('price_range')
@@ -234,11 +228,10 @@ async def procesar_variables(request: Request):
             dish=dish,
             zona=zona
         )
-        
+
         if not restaurantes:
             return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
-        
-        
+
         resultados = [
             {
                 "titulo": restaurante['fields'].get('title', 'Sin título'),
@@ -255,12 +248,59 @@ async def procesar_variables(request: Request):
             for restaurante in restaurantes
         ]
 
-        
         enviar_respuesta_a_n8n(resultados)
 
-       
         return {"mensaje": "Datos procesados y respuesta generada correctamente", "resultados": resultados}
-    
+
     except Exception as e:
         logging.error(f"Error al procesar variables: {e}")
         return {"error": "Ocurrió un error al procesar las variables"}
+
+@app.get("/")
+async def root():
+    return {"message": "Bienvenido a la API de búsqueda de restaurantes"}
+
+@app.get("/api/getRestaurants")
+async def get_restaurantes(
+    city: str,
+    date: Optional[str] = Query(None, description="La fecha en la que se planea visitar el restaurante"),
+    price_range: Optional[str] = Query(None, description="El rango de precios deseado para el restaurante"),
+    cocina: Optional[str] = Query(None, description="El tipo de cocina que prefiere el cliente"),
+    diet: Optional[str] = Query(None, description="Dieta que necesita el cliente"),
+    dish: Optional[str] = Query(None, description="Plato por el que puede preguntar un cliente específicamente"),
+    zona: Optional[str] = Query(None, description="Zona específica dentro de la ciudad")
+):
+    try:
+        dia_semana = None
+        if date:
+            fecha = datetime.strptime(date, "%Y-%m-%d")
+            dia_semana = obtener_dia_semana(fecha)
+
+        restaurantes = obtener_restaurantes_por_ciudad(city, dia_semana, price_range, cocina, diet, dish, zona)
+
+        if not restaurantes:
+            return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
+
+        resultados = [
+            {
+                "titulo": restaurante['fields'].get('title', 'Sin título'),
+                "descripcion": restaurante['fields'].get('bh_message', 'Sin descripción'),
+                "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
+                "url": restaurante['fields'].get('url', 'No especificado'),
+                "puntuacion_bistrohunter": restaurante['fields'].get('score', 'N/A'),
+                "distancia": (
+                    f"{haversine(float(restaurante['fields'].get('location/lng', 0)), float(restaurante['fields'].get('location/lat', 0)), lat_centro, lon_centro):.2f} km"
+                    if zona and 'location/lng' in restaurante['fields'] and 'location/lat' in restaurante['fields'] else "No calculado"
+                ),
+                "opciones_alimentarias": restaurante['fields'].get('tripadvisor_dietary_restrictions') if diet else None
+            }
+            for restaurante in restaurantes
+        ]
+
+        enviar_respuesta_a_n8n(resultados)
+
+        return {"resultados": resultados}
+
+    except Exception as e:
+        logging.error(f"Error al buscar restaurantes: {e}")
+        raise HTTPException(status_code=500, detail="Error al buscar restaurantes")
