@@ -253,7 +253,7 @@ async def procesar_variables(request: Request):
         if not restaurantes:
             return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
         
-        # Formatear los resultados
+        
         resultados = [
             {
                 "titulo": restaurante['fields'].get('title', 'Sin título'),
@@ -270,10 +270,10 @@ async def procesar_variables(request: Request):
             for restaurante in restaurantes
         ]
 
-        # Enviar los resultados al Webhook de n8n
+        
         enviar_respuesta_a_n8n(resultados)
 
-        # Devolver la respuesta al cliente (n8n)
+       
         return {"mensaje": "Datos procesados y respuesta generada correctamente", "resultados": resultados}
     
     except Exception as e:
