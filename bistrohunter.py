@@ -160,12 +160,14 @@ def obtener_restaurantes_por_ciudad(
 
             response_data = airtable_request(url, headers, params)
             if response_data and 'records' in response_data:
-                restaurantes_encontrados.extend(response_data['records'])
+                restaurantes_filtrados = [
+                    restaurante for restaurante in response_data['records']
+                    if restaurante not in restaurantes_encontrados  # Evitar duplicados
+                ]
+                restaurantes_encontrados.extend(restaurantes_filtrados)
 
-            
             distancia_km += 2.0
 
-            
             if distancia_km > 20:
                 break
     
