@@ -199,7 +199,7 @@ async def procesar_variables(request: Request):
     try:
         data = await request.json()
         logging.info(f"Datos recibidos: {data}")
-
+        
         city = data.get('city')
         date = data.get('date')
         price_range = data.get('price_range')
@@ -207,6 +207,9 @@ async def procesar_variables(request: Request):
         diet = data.get('diet')
         dish = data.get('dish')
         zona = data.get('zona')
+
+        # Comprobar y registrar todas las variables recibidas para debug
+        logging.info(f"city: {city}, date: {date}, price_range: {price_range}, cocina: {cocina}, diet: {diet}, dish: {dish}, zona: {zona}")
 
         if not city:
             raise HTTPException(status_code=400, detail="La variable 'city' es obligatoria.")
@@ -219,6 +222,7 @@ async def procesar_variables(request: Request):
             except ValueError:
                 raise HTTPException(status_code=400, detail="La fecha proporcionada no tiene el formato correcto (YYYY-MM-DD).")
 
+        # Llamada a la función principal con todos los parámetros
         restaurantes = obtener_restaurantes_por_ciudad(
             city=city,
             dia_semana=dia_semana,
@@ -228,7 +232,7 @@ async def procesar_variables(request: Request):
             dish=dish,
             zona=zona
         )
-
+        
         if not restaurantes:
             return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
 
@@ -248,10 +252,11 @@ async def procesar_variables(request: Request):
             for restaurante in restaurantes
         ]
 
+        # Enviar los resultados al Webhook de n8n
         enviar_respuesta_a_n8n(resultados)
 
         return {"mensaje": "Datos procesados y respuesta generada correctamente", "resultados": resultados}
-
+    
     except Exception as e:
         logging.error(f"Error al procesar variables: {e}")
         return {"error": "Ocurrió un error al procesar las variables"}
