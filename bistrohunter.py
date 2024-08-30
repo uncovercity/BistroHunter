@@ -17,6 +17,15 @@ AIRTABLE_PAT = os.getenv('AIRTABLE_PAT')
 GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY')
 N8N_WEBHOOK_URL = os.getenv('N8N_WEBHOOK_URL')
 
+DAYS_ES = {
+    "Monday": "lunes",
+    "Tuesday": "martes",
+    "Wednesday": "miércoles",
+    "Thursday": "jueves",
+    "Friday": "viernes",
+    "Saturday": "sábado",
+    "Sunday": "domingo"
+}
 
 DAYS_ES = {
     "Monday": "lunes",
@@ -200,6 +209,23 @@ def enviar_respuesta_a_n8n(resultados):
     except requests.exceptions.HTTPError as err:
         logging.error(f"Error al enviar resultados a n8n: {err}")
         raise
+
+@app.post("/procesar-variables")
+async def procesar_variables(request: Request):
+    try:
+        # Recibir los datos enviados desde n8n
+        data = await request.json()
+        logging.info(f"Datos recibidos: {data}")
+        
+        # Procesar los datos según sea necesario
+        # Por ejemplo, puedes pasar estos datos al modelo GPT para generar una respuesta
+        
+        # En este ejemplo, solo devolvemos los datos recibidos
+        return {"mensaje": "Datos procesados correctamente", "data": data}
+    
+    except Exception as e:
+        logging.error(f"Error al procesar variables: {e}")
+        return {"error": "Ocurrió un error al procesar las variables"}
 
 
 @app.get("/")
