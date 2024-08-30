@@ -83,10 +83,7 @@ def airtable_request(url, headers, params):
     return response.json() if response.status_code == 200 else None
 
 @cache_airtable_request
-def obtener_limites_geograficos(lat: float, lon: float, distancia_km: float = 1.0) -> dict:
-    # Aquí puedes calcular los límites usando una aproximación simple basada en la relación aproximada de grados a km.
-    # 1 grado de latitud ≈ 111 km, pero 1 grado de longitud varía con la latitud.
-    # Distancia fija de 1 km (~0.009 grados de latitud)
+def obtener_limites_geograficos(lat: float, lon: float, distancia_km: float = 2.0) -> dict:
     lat_delta = distancia_km / 111.0
     lon_delta = distancia_km / (111.0 * cos(radians(lat)))
     
@@ -100,12 +97,12 @@ def obtener_limites_geograficos(lat: float, lon: float, distancia_km: float = 1.
 @cache_airtable_request
 def obtener_restaurantes_por_ciudad(
     city: str, 
-    dia_semana: Optional[str]=None, 
+    dia_semana: Optional[str] = None, 
     price_range: Optional[str] = None,
     cocina: Optional[str] = None,
-    diet: Optional[str]= None,
-    dish: Optional[str]= None,
-    zona: Optional[str]=None
+    diet: Optional[str] = None,
+    dish: Optional[str] = None,
+    zona: Optional[str] = None
 ) -> List[dict]:
     try:
         table_name = 'Restaurantes DB'
@@ -137,32 +134,48 @@ def obtener_restaurantes_por_ciudad(
         if dish:
             formula_parts.append(f"FIND('{dish}', ARRAYJOIN({{comida_[TESTING]}}, ', ')) > 0")
         
-   
-        if zona:
-            location = obtener_coordenadas(zona, city)
-            if location:
-                limites = obtener_limites_geograficos(location['lat'], location['lng'])
-                formula_parts.append(f"AND({{location/lat}} >= {limites['lat_min']}, {{location/lat}} <= {limites['lat_max']})")
-                formula_parts.append(f"AND({{location/lng}} >= {limites['lon_min']}, {{location/lng}} <= {limites['lon_max']})")
+        restaurantes_encontrados = []
+        distancia_km = 2.0
         
-        filter_formula = "AND(" + ", ".join(formula_parts) + ")"
-        
-        logging.info(f"Fórmula de filtro construida: {filter_formula}")
-        
-        params = {
-            "filterByFormula": filter_formula,
-            "sort[0][field]": "score",
-            "sort[0][direction]": "desc",
-            "maxRecords": 3  
-        }
+        while len(restaurantes_encontrados) < 3:
+            
+            formula_parts_zona = formula_parts[:]
+            
+            if zona:
+                location = obtener_coordenadas(zona, city)
+                if location:
+                    limites = obtener_limites_geograficos(location['lat'], location['lng'], distancia_km)
+                    formula_parts_zona.append(f"AND({{location/lat}} >= {limites['lat_min']}, {{location/lat}} <= {limites['lat_max']})")
+                    formula_parts_zona.append(f"AND({{location/lng}} >= {limites['lon_min']}, {{location/lng}} <= {limites['lon_max']})")
+            
+            filter_formula = "AND(" + ", ".join(formula_parts_zona) + ")"
+            logging.info(f"Fórmula de filtro construida: {filter_formula} para distancia {distancia_km} km")
+            
+            params = {
+                "filterByFormula": filter_formula,
+                "sort[0][field]": "score",
+                "sort[0][direction]": "desc",
+                "maxRecords": 100 
+            }
 
-        response_data = airtable_request(url, headers, params)
-        if not response_data:
-            logging.error("Error al obtener restaurantes de la ciudad")
-            return []
+            response_data = airtable_request(url, headers, params)
+            if response_data and 'records' in response_data:
+                restaurantes_encontrados.extend(response_data['records'])
 
-        return response_data.get('records', [])
+            
+            distancia_km += 2.0
+
+            
+            if distancia_km > 20:
+                break
+    
+        if zona and location:
+            lat_centro = location['lat']
+            lon_centro = location['lng']
+            restaurantes_encontrados.sort(key=lambda r: haversine(lon_centro, lat_centro, float(r['fields'].get('location/lng', 0)), float(r['fields'].get('location/lat', 0))))
         
+        return restaurantes_encontrados[:3] 
+
     except Exception as e:
         logging.error(f"Error al obtener restaurantes de la ciudad: {e}")
         raise HTTPException(status_code=500, detail="Error al obtener restaurantes de la ciudad")
