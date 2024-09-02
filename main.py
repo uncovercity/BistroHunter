@@ -10,7 +10,7 @@ app = FastAPI()
 async def root():
     return {"message": "Bienvenido a la API de búsqueda de restaurantes"}
 
-@app.get("/api/getRestaurants")
+@app.post("/api/getRestaurants")
 async def get_restaurantes(
     client_conversation: Optional[str] = None,  # La conversación del cliente
     city: Optional[str] = None, 
