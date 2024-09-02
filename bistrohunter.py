@@ -200,7 +200,7 @@ def enviar_respuesta_a_n8n(resultados):
         logging.error(f"Error al enviar resultados a n8n: {err}")
         raise
 
-GPT_SERVER_URL = 'https://bistrohunter.onrender.com/procesar-variables'
+GPT_SERVER_URL = 'https://bistrohunter.onrender.com/extraer-variables'
 
 @app.post("/extraer-variables")
 def extraer_variables_con_gpt(client_conversation: str) -> dict:
