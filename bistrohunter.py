@@ -200,6 +200,28 @@ def enviar_respuesta_a_n8n(resultados):
         logging.error(f"Error al enviar resultados a n8n: {err}")
         raise
 
+GPT_SERVER_URL = 'https://bistrohunter.onrender.com/extraer-variables'
+
+@app.post("/extraer-variables")
+def extraer_variables_con_gpt(client_conversation: str) -> dict:
+    """
+    Envía la conversación del cliente a tu GPT personalizado para extraer variables.
+    """
+    try:
+        # Enviar la conversación al servidor GPT y recibir la respuesta
+        response = requests.post(GPT_SERVER_URL, json={"client_conversation": client_conversation})
+        response.raise_for_status()
+        
+        # Suponiendo que la respuesta es un JSON con las variables extraídas
+        extracted_data = response.json()
+        logging.info(f"Datos extraídos por GPT: {extracted_data}")
+        
+        return extracted_data
+
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error al conectar con el servidor GPT: {e}")
+        raise HTTPException(status_code=500, detail="Error al procesar la consulta con GPT")
+
 @app.post("/procesar-variables")
 async def procesar_variables(request: Request):
     try:
@@ -207,14 +229,23 @@ async def procesar_variables(request: Request):
         data = await request.json()
         logging.info(f"Datos recibidos: {data}")
         
-        # Extraer las variables opcionales de los datos recibidos
-        city = data.get('city')
-        date = data.get('date')
-        price_range = data.get('price_range')
-        cocina = data.get('cocina')
-        diet = data.get('diet')
-        dish = data.get('dish')
-        zona = data.get('zona')
+        # Extraer la conversación del cliente
+        client_conversation = data.get('client_conversation')
+        
+        if not client_conversation:
+            raise HTTPException(status_code=400, detail="La consulta en texto es obligatoria.")
+        
+        # Usar GPT para extraer las variables desde la conversación del cliente
+        extracted_data = extraer_variables_con_gpt(client_conversation)
+        
+        # Ahora utiliza los datos extraídos para obtener restaurantes o cualquier otro proceso
+        city = extracted_data.get('city')
+        date = extracted_data.get('date')
+        price_range = extracted_data.get('price_range')
+        cocina = extracted_data.get('cocina')
+        diet = extracted_data.get('diet')
+        dish = extracted_data.get('dish')
+        zona = extracted_data.get('zona')
 
         # Validación básica: al menos una ciudad debe estar presente
         if not city:
@@ -243,7 +274,6 @@ async def procesar_variables(request: Request):
         if not restaurantes:
             return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
         
-        
         resultados = [
             {
                 "titulo": restaurante['fields'].get('title', 'Sin título'),
@@ -260,12 +290,10 @@ async def procesar_variables(request: Request):
             for restaurante in restaurantes
         ]
 
-        
         enviar_respuesta_a_n8n(resultados)
 
-       
         return {"mensaje": "Datos procesados y respuesta generada correctamente", "resultados": resultados}
     
     except Exception as e:
         logging.error(f"Error al procesar variables: {e}")
-        return {"error": "Ocurrió un error al procesar las variables"}
+        return {"error": f"Ocurrió un error al procesar las variables: {str(e)}"}
