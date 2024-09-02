@@ -200,8 +200,8 @@ def enviar_respuesta_a_n8n(resultados):
         logging.error(f"Error al enviar resultados a n8n: {err}")
         raise
 
-@app.post("/api/extraer-variables")
-def extraer_variables_con_gpt(client_conversation: str) -> dict:
+@app.post("/api/extraer-variables-gpt")
+def extraer_variables_desde_gpt(client_conversation: str) -> dict:
     """
     Envía la conversación del cliente a tu GPT personalizado para extraer variables.
     """
@@ -219,6 +219,7 @@ def extraer_variables_con_gpt(client_conversation: str) -> dict:
     except requests.exceptions.RequestException as e:
         logging.error(f"Error al conectar con el servidor GPT: {e}")
         raise HTTPException(status_code=500, detail="Error al procesar la consulta con GPT")
+
 
 
 
