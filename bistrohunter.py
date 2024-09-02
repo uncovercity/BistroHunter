@@ -231,12 +231,14 @@ async def procesar_variables(request: Request):
         
         # Extraer la conversación del cliente
         client_conversation = data.get('client_conversation')
+        logging.info(f"Client conversation: {client_conversation}")
         
         if not client_conversation:
             raise HTTPException(status_code=400, detail="La consulta en texto es obligatoria.")
         
         # Usar GPT para extraer las variables desde la conversación del cliente
         extracted_data = extraer_variables_con_gpt(client_conversation)
+        logging.info(f"Datos extraídos: {extracted_data}")
         
         # Ahora utiliza los datos extraídos para obtener restaurantes o cualquier otro proceso
         city = extracted_data.get('city')
@@ -246,6 +248,8 @@ async def procesar_variables(request: Request):
         diet = extracted_data.get('diet')
         dish = extracted_data.get('dish')
         zona = extracted_data.get('zona')
+
+        logging.info(f"City: {city}, Date: {date}, Price Range: {price_range}, Cocina: {cocina}, Diet: {diet}, Dish: {dish}, Zona: {zona}")
 
         # Validación básica: al menos una ciudad debe estar presente
         if not city:
@@ -260,6 +264,8 @@ async def procesar_variables(request: Request):
             except ValueError:
                 raise HTTPException(status_code=400, detail="La fecha proporcionada no tiene el formato correcto (YYYY-MM-DD).")
 
+        logging.info(f"Día de la semana: {dia_semana}")
+
         # Llamar a la función obtener_restaurantes_por_ciudad con los parámetros recibidos
         restaurantes = obtener_restaurantes_por_ciudad(
             city=city,
@@ -270,6 +276,8 @@ async def procesar_variables(request: Request):
             dish=dish,
             zona=zona
         )
+
+        logging.info(f"Restaurantes encontrados: {restaurantes}")
         
         if not restaurantes:
             return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
@@ -297,3 +305,4 @@ async def procesar_variables(request: Request):
     except Exception as e:
         logging.error(f"Error al procesar variables: {e}")
         return {"error": f"Ocurrió un error al procesar las variables: {str(e)}"}
+
