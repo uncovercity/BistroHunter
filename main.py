@@ -66,7 +66,7 @@ async def procesar_variables(request: Request):
             raise HTTPException(status_code=400, detail="La consulta en texto es obligatoria.")
         
         # Usar GPT para extraer las variables desde la conversación del cliente
-        extracted_data = extraer_variables_con_gpt(client_conversation)
+        extracted_data = extraer_variables_desde_gpt(client_conversation)
         
         # Ahora utiliza los datos extraídos para obtener restaurantes o cualquier otro proceso
         city = extracted_data.get('city')
@@ -126,4 +126,5 @@ async def procesar_variables(request: Request):
     
     except Exception as e:
         logging.error(f"Error al procesar variables: {e}")
-        return {"error": "Ocurrió un error al procesar las variables"}
+        return {"error": f"Ocurrió un error al procesar las variables: {str(e)}"}
+
