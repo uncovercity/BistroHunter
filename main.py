@@ -52,7 +52,7 @@ async def get_restaurantes(
         logging.error(f"Error al buscar restaurantes: {e}")
         raise HTTPException(status_code=500, detail="Error al buscar restaurantes")
 
-@app.post("/procesar-variables")
+@app.post("/api/procesar-variables")
 async def procesar_variables(request: Request):
     try:
         # Recibir los datos enviados desde n8n
