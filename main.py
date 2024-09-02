@@ -58,24 +58,33 @@ async def get_restaurantes(
 @app.post("/procesar-variables")
 async def procesar_variables(request: Request):
     try:
-        
+        # Recibir los datos enviados desde n8n
         data = await request.json()
         logging.info(f"Datos recibidos: {data}")
         
+        # Extraer la conversación del cliente
+        client_conversation = data.get('client_conversation')
         
-        city = data.get('city')
-        date = data.get('date')
-        price_range = data.get('price_range')
-        cocina = data.get('cocina')
-        diet = data.get('diet')
-        dish = data.get('dish')
-        zona = data.get('zona')
+        if not client_conversation:
+            raise HTTPException(status_code=400, detail="La consulta en texto es obligatoria.")
+        
+        # Usar GPT para extraer las variables desde la conversación del cliente
+        extracted_data = extraer_variables_con_gpt(client_conversation)
+        
+        # Ahora utiliza los datos extraídos para obtener restaurantes o cualquier otro proceso
+        city = extracted_data.get('city')
+        date = extracted_data.get('date')
+        price_range = extracted_data.get('price_range')
+        cocina = extracted_data.get('cocina')
+        diet = extracted_data.get('diet')
+        dish = extracted_data.get('dish')
+        zona = extracted_data.get('zona')
 
-        
+        # Validación básica: al menos una ciudad debe estar presente
         if not city:
             raise HTTPException(status_code=400, detail="La variable 'city' es obligatoria.")
 
-        
+        # Procesar la fecha si se proporciona
         dia_semana = None
         if date:
             try:
@@ -84,7 +93,7 @@ async def procesar_variables(request: Request):
             except ValueError:
                 raise HTTPException(status_code=400, detail="La fecha proporcionada no tiene el formato correcto (YYYY-MM-DD).")
 
-        
+        # Llamar a la función obtener_restaurantes_por_ciudad con los parámetros recibidos
         restaurantes = obtener_restaurantes_por_ciudad(
             city=city,
             dia_semana=dia_semana,
