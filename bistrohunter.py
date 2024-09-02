@@ -7,6 +7,8 @@ import logging
 from functools import wraps
 from cachetools import TTLCache
 from math import radians, cos, sin, asin, sqrt
+import openai
+
 
 app = FastAPI()
 
