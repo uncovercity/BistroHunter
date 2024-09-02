@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Query, HTTPException, Request
 from typing import Optional
-from bistrohunter import obtener_restaurantes_por_ciudad, obtener_dia_semana, haversine, enviar_respuesta_a_n8n
+from bistrohunter import obtener_restaurantes_por_ciudad, obtener_dia_semana, haversine, enviar_respuesta_a_n8n, extraer_variables_con_gpt
 import logging
 from datetime import datetime
 
@@ -26,13 +26,11 @@ async def get_restaurantes(
             fecha = datetime.strptime(date, "%Y-%m-%d")
             dia_semana = obtener_dia_semana(fecha)
         
-    
         restaurantes = obtener_restaurantes_por_ciudad(city, dia_semana, price_range, cocina, diet, dish, zona)
         
         if not restaurantes:
             return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
 
-        
         resultados = [
             {
                 "titulo": restaurante['fields'].get('title', 'Sin título'),
@@ -46,7 +44,6 @@ async def get_restaurantes(
             for restaurante in restaurantes
         ]
 
-        
         enviar_respuesta_a_n8n(resultados)
 
         return {"resultados": resultados}
@@ -107,7 +104,6 @@ async def procesar_variables(request: Request):
         if not restaurantes:
             return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
         
-        
         resultados = [
             {
                 "titulo": restaurante['fields'].get('title', 'Sin título'),
@@ -124,10 +120,8 @@ async def procesar_variables(request: Request):
             for restaurante in restaurantes
         ]
 
-        
         enviar_respuesta_a_n8n(resultados)
 
-        
         return {"mensaje": "Datos procesados y respuesta generada correctamente", "resultados": resultados}
     
     except Exception as e:
