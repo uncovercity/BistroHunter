@@ -205,9 +205,63 @@ async def procesar_variables(request: Request):
         if not client_conversation:
             raise HTTPException(status_code=400, detail="La consulta en texto es obligatoria.")
 
-        # Enviar el texto directamente a GPT para que lo procese y gestione la llamada a get_restaurantes
-        # Aquí solo retornamos el texto para que GPT lo use.
-        return {"mensaje": "Consulta recibida y enviada a GPT correctamente", "client_conversation": client_conversation}
+        # Lógica de GPT para extraer variables desde el texto de client_conversation
+        extracted_data = extraer_variables_con_gpt(client_conversation)
+
+        # Extraer las variables obtenidas por GPT
+        city = extracted_data.get('city')
+        date = extracted_data.get('date')
+        price_range = extracted_data.get('price_range')
+        cocina = extracted_data.get('cocina')
+        diet = extracted_data.get('diet')
+        dish = extracted_data.get('dish')
+        zona = extracted_data.get('zona')
+
+        if not city:
+            raise HTTPException(status_code=400, detail="La variable 'city' es obligatoria.")
+
+        dia_semana = None
+        if date:
+            try:
+                fecha = datetime.strptime(date, "%Y-%m-%d")
+                dia_semana = obtener_dia_semana(fecha)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="La fecha proporcionada no tiene el formato correcto (YYYY-MM-DD).")
+
+        # Obtener los restaurantes basados en las variables extraídas
+        restaurantes = obtener_restaurantes_por_ciudad(
+            city=city,
+            dia_semana=dia_semana,
+            price_range=price_range,
+            cocina=cocina,
+            diet=diet,
+            dish=dish,
+            zona=zona
+        )
+
+        if not restaurantes:
+            return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
+
+        resultados = [
+            {
+                "titulo": restaurante['fields'].get('title', 'Sin título'),
+                "descripcion": restaurante['fields'].get('bh_message', 'Sin descripción'),
+                "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
+                "url": restaurante['fields'].get('url', 'No especificado'),
+                "puntuacion_bistrohunter": restaurante['fields'].get('score', 'N/A'),
+                "distancia": (
+                    f"{haversine(float(restaurante['fields'].get('location/lng', 0)), float(restaurante['fields'].get('location/lat', 0)), lat_centro, lon_centro):.2f} km"
+                    if zona and 'location/lng' in restaurante['fields'] and 'location/lat' in restaurante['fields'] else "No calculado"
+                ),
+                "opciones_alimentarias": restaurante['fields'].get('tripadvisor_dietary_restrictions') if diet else None
+            }
+            for restaurante in restaurantes
+        ]
+
+        # Enviar los resultados a n8n
+        enviar_respuesta_a_n8n(resultados)
+
+        return {"mensaje": "Datos procesados y respuesta generada correctamente", "resultados": resultados}
     
     except Exception as e:
         logging.error(f"Error al procesar la consulta: {e}")
@@ -216,6 +270,86 @@ async def procesar_variables(request: Request):
 @app.get("/")
 async def root():
     return {"message": "Bienvenido a la API de búsqueda de restaurantes"}
+
+def extraer_variables_con_gpt(client_conversation: str) -> dict:
+    """
+    Esta función utiliza GPT para extraer variables relevantes de una conversación
+    del cliente. Las variables que se extraen incluyen ciudad, fecha, rango de precios,
+    tipo de cocina, restricciones alimentarias, plato específico y zona.
+
+    Args:
+    client_conversation (str): La conversación completa del cliente.
+
+    Returns:
+    dict: Un diccionario con las variables extraídas.
+    """
+
+    # Construir el prompt con el formato proporcionado y la conversación del cliente
+    prompt = f"""
+    {client_conversation}
+
+        Hello! I am BistroHunter, your personal assistant for finding the best restaurants. I'm here to help you have the best possible dining experience.
+    
+    ### STEP 1: Collecting Information
+    - **CITY is mandatory**: If the client does not provide a city, you must ask for it and keep asking until it is provided.
+    - If the client provides **DATE, CUISINE TYPE, PRICE RANGE, ALIMENTARY RESTRICTIONS, SPECIFIC DISHES**, collect this information as well to offer the best possible restaurant options.
+    - **DATE is optional**: If the client provides a date, check the day of the week and determine if it is a holiday in the specified city. 
+      - **If it is a holiday**, always warn the client: "Please note that the restaurant's hours might differ due to the holiday, or it might even be closed."
+      - **If the client does not provide a date**, always include the following warning: "Since you haven't specified a date, please remember to check the opening hours of the recommended restaurants."
+    
+    ### STEP 2: Adapting to the Client's Style
+    - **Language and Tone**: Always respond in the language or dialect the client uses. If the client writes in French, respond in French; if they write in Catalan, respond in Catalan. 
+      - If you do not recognize the dialect but understand the language, respond in the standard dialect of that language. If you cannot recognize the language, respond in Spanish.
+    - **Formality**: Mirror the client's tone and formality. If the client is formal, maintain a formal tone; if they are informal, respond in a friendly, casual manner.
+    
+    ### STEP 3: Processing the Request
+    - Convert the client's criteria into the appropriate format for Airtable.
+      - **Cuisine Type**: Convert the cuisine type provided by the client into one of these specific categories: Española, Otros, India, Fusión, Italiano, Mexicano, Chino, Japonés, Asiático, Healthy, Americana, Latina, Vegetariano, Árabe, Vegano, Hindú.
+      - **Price Range**: Ensure the price range is converted into the intervals used in Airtable (e.g., “10-20 €“, “20-30 €”, etc.).
+    - Retrieve the top 3 restaurant options, ordered by score (stars) in descending order.
+    
+    ### STEP 4: Responding to the Client
+    - Begin with a friendly greeting, using the client's name if provided.
+    - Include any warnings about date and opening hours based on whether the client provided a date.
+    - Present the top 3 restaurant options, ensuring they are ordered by their score in descending order.
+    - Conclude the message by reminding the client that you can assist with making reservations.
+    
+    ### CRITICAL Reminder:
+    - **ALWAYS** include a warning about checking the opening hours if the client has not provided a date. This warning must be given **before** presenting the restaurant options.
+    
+    ### REMEMBER:
+    - **ALWAYS** include a warning about checking the opening hours if the client has not provided a date. This warning must be given **before** presenting the restaurant options.
+    
+    ### EXAMPLES:
+    
+    1. **If the client provides a date**:
+       - "Here are the best restaurant options for your visit on [date]: ..."
+    
+    2. **If the client does NOT provide a date**:
+       - "Since you haven't specified a date, please remember to check the opening hours of the recommended restaurants before your visit. Here are the top options: ..."
+        """
+
+    try:
+        # Llamada a la API de OpenAI para procesar el prompt
+        response = openai.Completion.create(
+        model="gpt-4o",  # Especifica el modelo GPT-4 aquí
+        prompt=prompt,
+        max_tokens=150,
+        n=1,
+        stop=None,
+        temperature=0.7,
+    )
+
+
+        # Extraer la respuesta de GPT y convertirla a un diccionario
+        gpt_response = response.choices[0].text.strip()
+        extracted_data = eval(gpt_response)
+
+        return extracted_data
+
+    except Exception as e:
+        logging.error(f"Error al procesar la consulta con GPT: {e}")
+        raise HTTPException(status_code=500, detail="Error al procesar la consulta con GPT")
 
 @app.get("/api/getRestaurants")
 async def get_restaurantes(
