@@ -129,7 +129,7 @@ def extraer_variables_desde_gpt(client_conversation: str) -> dict:
         logging.error(f"Error al conectar con el servidor GPT: {e}")
         raise HTTPException(status_code=500, detail="Error al procesar la consulta con GPT")
 
-@app.get("/api/getRestaurants")
+@app.post("/api/getRestaurants")
 async def get_restaurantes(client_conversation: str):
     try:
         # Extraer variables desde la conversación usando GPT
