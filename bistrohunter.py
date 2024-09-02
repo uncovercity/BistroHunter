@@ -134,6 +134,8 @@ async def get_restaurantes(client_conversation: str):
     try:
         # Extraer variables desde la conversación usando GPT
         extracted_data = extraer_variables_desde_gpt(client_conversation)
+        
+        logging.info(f"Extracted data: {extracted_data}")  # Log the extracted data
 
         # Obtener variables extraídas
         city = extracted_data.get('city')
@@ -146,6 +148,7 @@ async def get_restaurantes(client_conversation: str):
 
         # Validación básica
         if not city:
+            logging.error("City not found in extracted data")  # Log the error
             raise HTTPException(status_code=400, detail="La variable 'city' es obligatoria.")
 
         # Procesar la fecha si se proporciona
@@ -170,28 +173,26 @@ async def get_restaurantes(client_conversation: str):
 
         # Formatear la respuesta
         resultados = [
-        {
-            "titulo": restaurante['fields'].get('title', 'Sin título'),
-            "descripcion": restaurante['fields'].get('bh_message', 'Sin descripción'),
-            "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
-            "url": restaurante['fields'].get('url', 'No especificado'),
-            "puntuacion_bistrohunter": restaurante['fields'].get('score', 'N/A'),
-            "distancia": (
-                f"{haversine(float(restaurante['fields'].get('location/lng', 0)), float(restaurante['fields'].get('location/lat', 0)), float(zona['lng']), float(zona['lat'])):.2f} km"
-                if zona and 'location/lng' in restaurante['fields'] and 'location/lat' in restaurante['fields'] else "No calculado"
-            ),
-            "opciones_alimentarias": restaurante['fields'].get('tripadvisor_dietary_restrictions') if diet else None
-        }
-        for restaurante in restaurantes
-    ]
+            {
+                "titulo": restaurante['fields'].get('title', 'Sin título'),
+                "descripcion": restaurante['fields'].get('bh_message', 'Sin descripción'),
+                "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
+                "url": restaurante['fields'].get('url', 'No especificado'),
+                "puntuacion_bistrohunter": restaurante['fields'].get('score', 'N/A'),
+                "distancia": (
+                    f"{haversine(float(restaurante['fields'].get('location/lng', 0)), float(restaurante['fields'].get('location/lat', 0)), float(zona['lng']), float(zona['lat'])):.2f} km"
+                    if zona and 'location/lng' in restaurante['fields'] and 'location/lat' in restaurante['fields'] else "No calculado"
+                ),
+                "opciones_alimentarias": restaurante['fields'].get('tripadvisor_dietary_restrictions') if diet else None
+            }
+            for restaurante in restaurantes
+        ]
 
         # Añade esta línea para enviar los resultados a n8n
         enviar_respuesta_a_n8n(resultados)
-        
 
         return {"resultados": resultados}
 
     except Exception as e:
         logging.error(f"Error al procesar la solicitud: {e}")
         return {"error": f"Ocurrió un error al procesar la solicitud: {str(e)}"}
-
