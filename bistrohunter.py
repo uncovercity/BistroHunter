@@ -65,6 +65,16 @@ def airtable_request(url, headers, params):
     response = requests.get(url, headers=headers, params=params)
     return response.json() if response.status_code == 200 else None
 
+def enviar_respuesta_a_n8n(resultados):
+    try:
+        response = requests.post(N8N_WEBHOOK_URL, json={"resultados": resultados})
+        response.raise_for_status()
+        logging.info("Resultados enviados a n8n con éxito.")
+    except requests.exceptions.HTTPError as err:
+        logging.error(f"Error al enviar resultados a n8n: {err}")
+        raise
+
+
 # Función para obtener restaurantes por ciudad
 def obtener_restaurantes_por_ciudad(city: str, dia_semana: Optional[str] = None, 
                                     price_range: Optional[str] = None, cocina: Optional[str] = None,
@@ -160,20 +170,24 @@ async def get_restaurantes(client_conversation: str):
 
         # Formatear la respuesta
         resultados = [
-            {
-                "titulo": restaurante['fields'].get('title', 'Sin título'),
-                "descripcion": restaurante['fields'].get('bh_message', 'Sin descripción'),
-                "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
-                "url": restaurante['fields'].get('url', 'No especificado'),
-                "puntuacion_bistrohunter": restaurante['fields'].get('score', 'N/A'),
-                "distancia": (
-                    f"{haversine(float(restaurante['fields'].get('location/lng', 0)), float(restaurante['fields'].get('location/lat', 0)), float(zona['lng']), float(zona['lat'])):.2f} km"
-                    if zona and 'location/lng' in restaurante['fields'] and 'location/lat' in restaurante['fields'] else "No calculado"
-                ),
-                "opciones_alimentarias": restaurante['fields'].get('tripadvisor_dietary_restrictions') if diet else None
-            }
-            for restaurante in restaurantes
-        ]
+        {
+            "titulo": restaurante['fields'].get('title', 'Sin título'),
+            "descripcion": restaurante['fields'].get('bh_message', 'Sin descripción'),
+            "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
+            "url": restaurante['fields'].get('url', 'No especificado'),
+            "puntuacion_bistrohunter": restaurante['fields'].get('score', 'N/A'),
+            "distancia": (
+                f"{haversine(float(restaurante['fields'].get('location/lng', 0)), float(restaurante['fields'].get('location/lat', 0)), float(zona['lng']), float(zona['lat'])):.2f} km"
+                if zona and 'location/lng' in restaurante['fields'] and 'location/lat' in restaurante['fields'] else "No calculado"
+            ),
+            "opciones_alimentarias": restaurante['fields'].get('tripadvisor_dietary_restrictions') if diet else None
+        }
+        for restaurante in restaurantes
+    ]
+
+        # Añade esta línea para enviar los resultados a n8n
+        enviar_respuesta_a_n8n(resultados)
+        
 
         return {"resultados": resultados}
 
