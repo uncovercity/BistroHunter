@@ -202,25 +202,27 @@ def enviar_respuesta_a_n8n(resultados):
 
 GPT_SERVER_URL = 'https://bistrohunter.onrender.com/extraer-variables'
 
-@app.post("/extraer-variables")
-def extraer_variables_con_gpt(client_conversation: str) -> dict:
+@app.post("/api/extraer-variables")
+def extraer_variables_con_gpt(request: Request) -> dict:
     """
-    Envía la conversación del cliente a tu GPT personalizado para extraer variables.
+    Este endpoint debería tomar la conversación del cliente y devolver las variables extraídas.
     """
     try:
-        # Enviar la conversación al servidor GPT y recibir la respuesta
-        response = requests.post(GPT_SERVER_URL, json={"client_conversation": client_conversation})
-        response.raise_for_status()
+        data = request.json()
+        client_conversation = data.get("client_conversation")
         
-        # Suponiendo que la respuesta es un JSON con las variables extraídas
-        extracted_data = response.json()
-        logging.info(f"Datos extraídos por GPT: {extracted_data}")
+        # Aquí colocas la lógica de tu GPT para extraer las variables
+        extracted_data = {
+            "city": "Madrid",
+            "cocina": "Italiano",
+            # Otros campos que tu GPT debería rellenar
+        }
         
         return extracted_data
+    except Exception as e:
+        logging.error(f"Error al extraer variables: {e}")
+        raise HTTPException(status_code=500, detail="Error al extraer variables")
 
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Error al conectar con el servidor GPT: {e}")
-        raise HTTPException(status_code=500, detail="Error al procesar la consulta con GPT")
 
 @app.post("/procesar-variables")
 async def procesar_variables(request: Request):
