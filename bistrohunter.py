@@ -91,7 +91,7 @@ def obtener_limites_geograficos(lat: float, lon: float, distancia_km: float = 2.
         "lat_min": lat - lat_delta,
         "lat_max": lat + lat_delta,
         "lon_min": lon - lon_delta,
-        "lon_max": lon + lon_delta
+        "lon_max": lon - lon_delta
     }
 
 @cache_airtable_request
@@ -200,7 +200,7 @@ def enviar_respuesta_a_n8n(resultados):
         logging.error(f"Error al enviar resultados a n8n: {err}")
         raise
 
-GPT_SERVER_URL = 'https://bistrohunter.onrender.com/extraer-variables'
+GPT_SERVER_URL = 'https://bistrohunter.onrender.com/procesar-variables'
 
 @app.post("/extraer-variables")
 def extraer_variables_con_gpt(client_conversation: str) -> dict:
