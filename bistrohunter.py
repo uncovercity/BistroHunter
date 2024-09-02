@@ -117,14 +117,18 @@ def obtener_restaurantes_por_ciudad(city: str, dia_semana: Optional[str] = None,
         raise HTTPException(status_code=500, detail="Error al obtener restaurantes de la ciudad")
 
 # Función para extraer variables usando GPT
+# Función para extraer variables usando GPT
 def extraer_variables_desde_gpt(client_conversation: str) -> dict:
     try:
+        logging.info(f"Enviando conversación a GPT: {client_conversation}")  # Log para verificar la conversación enviada
         response = requests.post(
             "https://bistrohunter.onrender.com/api/extraer-variables",
             json={"client_conversation": client_conversation}
         )
         response.raise_for_status()
-        return response.json()
+        extracted_data = response.json()
+        logging.info(f"Datos extraídos por GPT: {extracted_data}")  # Log para verificar los datos extraídos
+        return extracted_data
     except requests.exceptions.RequestException as e:
         logging.error(f"Error al conectar con el servidor GPT: {e}")
         raise HTTPException(status_code=500, detail="Error al procesar la consulta con GPT")
@@ -134,22 +138,24 @@ async def get_restaurantes(client_conversation: str):
     try:
         # Extraer variables desde la conversación usando GPT
         extracted_data = extraer_variables_desde_gpt(client_conversation)
-        
-        logging.info(f"Extracted data: {extracted_data}")  # Log the extracted data
+
+        logging.info(f"Datos extraídos: {extracted_data}")  # Log para verificar los datos extraídos
 
         # Obtener variables extraídas
         city = extracted_data.get('city')
+        logging.info(f"Ciudad extraída: {city}")  # Log para verificar si la ciudad se ha extraído correctamente
+
+        # Validación básica
+        if not city:
+            logging.error("City not found in extracted data")  # Log the error
+            raise HTTPException(status_code=400, detail="La variable 'city' es obligatoria.")
+
         date = extracted_data.get('date')
         price_range = extracted_data.get('price_range')
         cocina = extracted_data.get('cocina')
         diet = extracted_data.get('diet')
         dish = extracted_data.get('dish')
         zona = extracted_data.get('zona')
-
-        # Validación básica
-        if not city:
-            logging.error("City not found in extracted data")  # Log the error
-            raise HTTPException(status_code=400, detail="La variable 'city' es obligatoria.")
 
         # Procesar la fecha si se proporciona
         dia_semana = None
@@ -196,3 +202,4 @@ async def get_restaurantes(client_conversation: str):
     except Exception as e:
         logging.error(f"Error al procesar la solicitud: {e}")
         return {"error": f"Ocurrió un error al procesar la solicitud: {str(e)}"}
+
