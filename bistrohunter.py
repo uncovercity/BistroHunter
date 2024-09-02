@@ -223,7 +223,7 @@ def extraer_variables_desde_gpt(client_conversation: str) -> dict:
 
 
 
-@app.post("/procesar-variables")
+@app.post("/api/procesar-variables")
 async def procesar_variables(request: Request):
     try:
         # Recibir los datos enviados desde n8n
