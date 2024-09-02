@@ -27,16 +27,6 @@ DAYS_ES = {
     "Sunday": "domingo"
 }
 
-DAYS_ES = {
-    "Monday": "lunes",
-    "Tuesday": "martes",
-    "Wednesday": "miércoles",
-    "Thursday": "jueves",
-    "Friday": "viernes",
-    "Saturday": "sábado",
-    "Sunday": "domingo"
-}
-
 def obtener_dia_semana(fecha: datetime) -> str:
     try:
         dia_semana_en = fecha.strftime('%A')  
