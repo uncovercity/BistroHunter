@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Query, HTTPException, Request
 from typing import Optional
-from bistrohunter import obtener_restaurantes_por_ciudad, obtener_dia_semana, haversine, enviar_respuesta_a_n8n
+from bistrohunter import obtener_restaurantes_por_ciudad, obtener_dia_semana, haversine, enviar_respuesta_a_n8n, extraer_variables_con_gpt
 import logging
 from datetime import datetime
 
@@ -26,13 +26,11 @@ async def get_restaurantes(
             fecha = datetime.strptime(date, "%Y-%m-%d")
             dia_semana = obtener_dia_semana(fecha)
         
-    
         restaurantes = obtener_restaurantes_por_ciudad(city, dia_semana, price_range, cocina, diet, dish, zona)
         
         if not restaurantes:
             return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
 
-        
         resultados = [
             {
                 "titulo": restaurante['fields'].get('title', 'Sin título'),
@@ -46,7 +44,6 @@ async def get_restaurantes(
             for restaurante in restaurantes
         ]
 
-        
         enviar_respuesta_a_n8n(resultados)
 
         return {"resultados": resultados}
@@ -58,24 +55,28 @@ async def get_restaurantes(
 @app.post("/procesar-variables")
 async def procesar_variables(request: Request):
     try:
-        
+        # Recibir el texto completo de la consulta desde n8n
         data = await request.json()
         logging.info(f"Datos recibidos: {data}")
-        
-        
-        city = data.get('city')
-        date = data.get('date')
-        price_range = data.get('price_range')
-        cocina = data.get('cocina')
-        diet = data.get('diet')
-        dish = data.get('dish')
-        zona = data.get('zona')
 
+        client_conversation = data.get('client_conversation')
+        if not client_conversation:
+            raise HTTPException(status_code=400, detail="La consulta en texto es obligatoria.")
         
+        # Usar GPT para extraer las variables desde la conversación
+        extracted_data = extraer_variables_con_gpt(client_conversation)
+        
+        city = extracted_data.get('city')
+        date = extracted_data.get('date')
+        price_range = extracted_data.get('price_range')
+        cocina = extracted_data.get('cocina')
+        diet = extracted_data.get('diet')
+        dish = extracted_data.get('dish')
+        zona = extracted_data.get('zona')
+
         if not city:
             raise HTTPException(status_code=400, detail="La variable 'city' es obligatoria.")
 
-        
         dia_semana = None
         if date:
             try:
@@ -84,7 +85,6 @@ async def procesar_variables(request: Request):
             except ValueError:
                 raise HTTPException(status_code=400, detail="La fecha proporcionada no tiene el formato correcto (YYYY-MM-DD).")
 
-        
         restaurantes = obtener_restaurantes_por_ciudad(
             city=city,
             dia_semana=dia_semana,
@@ -97,7 +97,6 @@ async def procesar_variables(request: Request):
         
         if not restaurantes:
             return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
-        
         
         resultados = [
             {
@@ -115,10 +114,8 @@ async def procesar_variables(request: Request):
             for restaurante in restaurantes
         ]
 
-        
         enviar_respuesta_a_n8n(resultados)
 
-        
         return {"mensaje": "Datos procesados y respuesta generada correctamente", "resultados": resultados}
     
     except Exception as e:
