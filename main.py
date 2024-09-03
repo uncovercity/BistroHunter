@@ -1,6 +1,6 @@
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, Request
 from typing import Optional
-from bistrohunter import obtener_restaurantes_por_ciudad, obtener_dia_semana, haversine
+from bistrohunter import obtener_restaurantes_por_ciudad, obtener_dia_semana, haversine, enviar_respuesta_a_n8n
 import logging
 from datetime import datetime
 
@@ -26,7 +26,7 @@ async def get_restaurantes(
             fecha = datetime.strptime(date, "%Y-%m-%d")
             dia_semana = obtener_dia_semana(fecha)
         
-        
+    
         restaurantes = obtener_restaurantes_por_ciudad(city, dia_semana, price_range, cocina, diet, dish, zona)
         
         if not restaurantes:
@@ -46,8 +46,81 @@ async def get_restaurantes(
             for restaurante in restaurantes
         ]
 
+        
+        enviar_respuesta_a_n8n(resultados)
+
         return {"resultados": resultados}
         
     except Exception as e:
         logging.error(f"Error al buscar restaurantes: {e}")
         raise HTTPException(status_code=500, detail="Error al buscar restaurantes")
+
+@app.post("/procesar-variables")
+async def procesar_variables(request: Request):
+    try:
+        
+        data = await request.json()
+        logging.info(f"Datos recibidos: {data}")
+        
+        
+        city = data.get('city')
+        date = data.get('date')
+        price_range = data.get('price_range')
+        cocina = data.get('cocina')
+        diet = data.get('diet')
+        dish = data.get('dish')
+        zona = data.get('zona')
+
+        
+        if not city:
+            raise HTTPException(status_code=400, detail="La variable 'city' es obligatoria.")
+
+        
+        dia_semana = None
+        if date:
+            try:
+                fecha = datetime.strptime(date, "%Y-%m-%d")
+                dia_semana = obtener_dia_semana(fecha)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="La fecha proporcionada no tiene el formato correcto (YYYY-MM-DD).")
+
+        
+        restaurantes = obtener_restaurantes_por_ciudad(
+            city=city,
+            dia_semana=dia_semana,
+            price_range=price_range,
+            cocina=cocina,
+            diet=diet,
+            dish=dish,
+            zona=zona
+        )
+        
+        if not restaurantes:
+            return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
+        
+        
+        resultados = [
+            {
+                "titulo": restaurante['fields'].get('title', 'Sin título'),
+                "descripcion": restaurante['fields'].get('bh_message', 'Sin descripción'),
+                "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
+                "url": restaurante['fields'].get('url', 'No especificado'),
+                "puntuacion_bistrohunter": restaurante['fields'].get('score', 'N/A'),
+                "distancia": (
+                    f"{haversine(float(restaurante['fields'].get('location/lng', 0)), float(restaurante['fields'].get('location/lat', 0)), lat_centro, lon_centro):.2f} km"
+                    if zona and 'location/lng' in restaurante['fields'] and 'location/lat' in restaurante['fields'] else "No calculado"
+                ),
+                "opciones_alimentarias": restaurante['fields'].get('tripadvisor_dietary_restrictions') if diet else None
+            }
+            for restaurante in restaurantes
+        ]
+
+        
+        enviar_respuesta_a_n8n(resultados)
+
+        
+        return {"mensaje": "Datos procesados y respuesta generada correctamente", "resultados": resultados}
+    
+    except Exception as e:
+        logging.error(f"Error al procesar variables: {e}")
+        return {"error": "Ocurrió un error al procesar las variables"}
