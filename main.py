@@ -18,7 +18,8 @@ async def get_restaurantes(
     cocina: Optional[str] = Query(None, description="El tipo de cocina que prefiere el cliente"),
     diet: Optional[str] = Query(None, description="Dieta que necesita el cliente"),
     dish: Optional[str] = Query(None, description="Plato por el que puede preguntar un cliente específicamente"),
-    zona: Optional[str] = Query(None, description="Zona específica dentro de la ciudad")
+    zona: Optional[str] = Query(None, description="Zona específica dentro de la ciudad"),
+    conversation_id: str = Query(None)
 ):
     try:
         dia_semana = None
@@ -46,8 +47,7 @@ async def get_restaurantes(
             for restaurante in restaurantes
         ]
 
-        
-        enviar_respuesta_a_n8n(resultados)
+        enviar_respuesta_a_n8n(resultados, conversation_id)
 
         return {"resultados": resultados}
         
