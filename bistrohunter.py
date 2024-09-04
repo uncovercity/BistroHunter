@@ -193,7 +193,7 @@ def obtener_restaurantes_por_ciudad(
     
 def enviar_respuesta_a_n8n(resultados, conversation_id):
     try:
-        response = requests.post(N8N_WEBHOOK_URL, json={"resultados": resultados}, {"conversation_id": conversation_id})
+        response = requests.post(N8N_WEBHOOK_URL, json={"resultados": resultados, "conversation_id": conversation_id})
         response.raise_for_status()
         logging.info("Resultados enviados a n8n con éxito.")
     except requests.exceptions.HTTPError as err:
