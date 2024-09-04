@@ -191,9 +191,9 @@ def obtener_restaurantes_por_ciudad(
         logging.error(f"Error al obtener restaurantes de la ciudad: {e}")
         raise HTTPException(status_code=500, detail="Error al obtener restaurantes de la ciudad")
     
-def enviar_respuesta_a_n8n(resultados):
+def enviar_respuesta_a_n8n(resultados, conversation_id):
     try:
-        response = requests.post(N8N_WEBHOOK_URL, json={"resultados": resultados})
+        response = requests.post(N8N_WEBHOOK_URL, json={"resultados": resultados}, {"conversation_id": conversation_id})
         response.raise_for_status()
         logging.info("Resultados enviados a n8n con éxito.")
     except requests.exceptions.HTTPError as err:
