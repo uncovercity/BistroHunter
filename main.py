@@ -6,6 +6,8 @@ from datetime import datetime
 
 app = FastAPI()
 
+api_access_token = os.getenv('api_access_token')
+
 @app.get("/")
 async def root():
     return {"message": "Bienvenido a la API de búsqueda de restaurantes"}
@@ -52,3 +54,22 @@ async def get_restaurantes(
     except Exception as e:
         logging.error(f"Error al buscar restaurantes: {e}")
         raise HTTPException(status_code=500, detail="Error al buscar restaurantes")
+
+async def chatwoot_message(conversation_id: str, message: str, api_access_token: str):
+    url = f"https://app.chatwoot.com/api/v1/accounts/99502/conversations/{conversation_id}/messages"
+    headers = {
+        "Content-Type": "application/json",
+        "api_access_token": api_access_token
+    }
+    payload = {
+        "content": message
+    }
+    
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        if response.status_code != 200:
+            logging.error(f"Error al enviar mensaje a Chatwoot: {response.text}")
+            raise HTTPException(status_code=response.status_code, detail="Error al enviar mensaje a Chatwoot")
+    except Exception as e:
+        logging.error(f"Error en la solicitud a Chatwoot: {e}")
+        raise HTTPException(status_code=500, detail="Error al enviar mensaje a Chatwoot")
