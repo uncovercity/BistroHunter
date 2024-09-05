@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Query, HTTPException, Request
 from typing import Optional
-from bistrohunter import obtener_restaurantes_por_ciudad, obtener_dia_semana, haversine, enviar_respuesta_a_n8n
+from bistrohunter import obtener_restaurantes_por_ciudad, obtener_dia_semana, haversine
 import logging
 from datetime import datetime
 
