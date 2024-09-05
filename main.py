@@ -1,6 +1,6 @@
-from fastapi import FastAPI, Query, HTTPException, Request
+from fastapi import FastAPI, Query, HTTPException
 from typing import Optional
-from bistrohunter import obtener_restaurantes_por_ciudad, obtener_dia_semana, haversine
+from bistrohunter import obtener_restaurantes_por_ciudad, obtener_dia_semana
 import logging
 from datetime import datetime
 import os
@@ -15,6 +15,43 @@ api_access_token = os.getenv('api_access_token')
 async def root():
     return {"message": "Bienvenido a la API de búsqueda de restaurantes"}
 
+# Función para enviar mensaje al cliente vía Chatwoot
+@app.post("/api/chatwoot_message")
+async def chatwoot_message(conversation_id: str):
+    """
+    Envia un mensaje al cliente vía Chatwoot para preguntarle sobre los filtros de búsqueda de restaurantes.
+    
+    Args:
+        conversation_id (str): El ID de la conversación de Chatwoot.
+    """
+    url = f"https://app.chatwoot.com/api/v1/accounts/99502/conversations/{conversation_id}/messages"
+    headers = {
+        "Content-Type": "application/json",
+        "api_access_token": api_access_token
+    }
+    
+    # El mensaje que se enviará al cliente para recolectar las variables necesarias
+    message = """
+    ¡Hola! Soy BistroHunter. Encontraré el mejor restaurante para ti. Necesito que me digas en qué ciudad quieres disfrutar de tu experiencia. 
+    Cuantos más datos me des (plato que te apetece, zona de la ciudad, rango de precios, fecha, restricciones alimenticias o alergias, tipo de cocina...), 
+    mejor podré ayudarte.
+    """
+    
+    payload = {
+        "content": message
+    }
+    
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        if response.status_code != 200:
+            logging.error(f"Error al enviar mensaje a Chatwoot: {response.text}")
+            raise HTTPException(status_code=response.status_code, detail="Error al enviar mensaje a Chatwoot")
+        return {"mensaje": "Mensaje enviado al cliente para solicitar información sobre la búsqueda de restaurantes."}
+    except Exception as e:
+        logging.error(f"Error en la solicitud a Chatwoot: {e}")
+        raise HTTPException(status_code=500, detail="Error al enviar mensaje a Chatwoot")
+
+# Función para recomendar restaurantes basada en las respuestas obtenidas
 @app.get("/api/getRestaurants")
 async def get_restaurantes(
     city: str, 
@@ -49,8 +86,8 @@ async def get_restaurantes(
             }
             for restaurante in restaurantes
         ]
-        
-        # Si se proporciona conversation_id, enviar un mensaje usando la API de Chatwoot
+
+        # Enviar los resultados al cliente vía Chatwoot
         if conversation_id:
             await chatwoot_message(conversation_id, "Aquí tienes los resultados de tu búsqueda de restaurantes.", api_access_token)
 
@@ -63,11 +100,6 @@ async def get_restaurantes(
 async def chatwoot_message(conversation_id: str, message: str, api_access_token: str):
     """
     Envia un mensaje a través de la API de Chatwoot usando el ID de la conversación.
-    
-    Args:
-        conversation_id (str): El ID de la conversación a la que se enviará el mensaje.
-        message (str): El mensaje que se enviará al cliente.
-        api_access_token (str): El token de acceso para autenticar la llamada a la API de Chatwoot.
     """
     url = f"https://app.chatwoot.com/api/v1/accounts/99502/conversations/{conversation_id}/messages"
     headers = {
