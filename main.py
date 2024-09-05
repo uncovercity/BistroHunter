@@ -3,6 +3,7 @@ from typing import Optional
 from bistrohunter import obtener_restaurantes_por_ciudad, obtener_dia_semana, haversine
 import logging
 from datetime import datetime
+import os
 
 app = FastAPI()
 
