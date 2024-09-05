@@ -15,6 +15,7 @@ logging.basicConfig(level=logging.INFO)
 BASE_ID = os.getenv('BASE_ID')
 AIRTABLE_PAT = os.getenv('AIRTABLE_PAT')
 GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY')
+N8N_WEBHOOK_URL = os.getenv('N8N_WEBHOOK_URL')
 
 DAYS_ES = {
     "Monday": "lunes",
@@ -189,3 +190,4 @@ def obtener_restaurantes_por_ciudad(
     except Exception as e:
         logging.error(f"Error al obtener restaurantes de la ciudad: {e}")
         raise HTTPException(status_code=500, detail="Error al obtener restaurantes de la ciudad")
+    
