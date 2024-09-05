@@ -4,9 +4,11 @@ from bistrohunter import obtener_restaurantes_por_ciudad, obtener_dia_semana, ha
 import logging
 from datetime import datetime
 import os
+import requests
 
 app = FastAPI()
 
+# El token de acceso a la API de Chatwoot se obtiene desde una variable de entorno
 api_access_token = os.getenv('api_access_token')
 
 @app.get("/")
@@ -22,7 +24,7 @@ async def get_restaurantes(
     diet: Optional[str] = Query(None, description="Dieta que necesita el cliente"),
     dish: Optional[str] = Query(None, description="Plato por el que puede preguntar un cliente específicamente"),
     zona: Optional[str] = Query(None, description="Zona específica dentro de la ciudad"),
-    conversation_id: str = Query(None)
+    conversation_id: Optional[str] = Query(None, description="El ID de la conversación de Chatwoot")
 ):
     try:
         dia_semana = None
@@ -30,13 +32,11 @@ async def get_restaurantes(
             fecha = datetime.strptime(date, "%Y-%m-%d")
             dia_semana = obtener_dia_semana(fecha)
         
-    
         restaurantes = obtener_restaurantes_por_ciudad(city, dia_semana, price_range, cocina, diet, dish, zona)
         
         if not restaurantes:
             return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
 
-        
         resultados = [
             {
                 "titulo": restaurante['fields'].get('title', 'Sin título'),
@@ -49,6 +49,10 @@ async def get_restaurantes(
             }
             for restaurante in restaurantes
         ]
+        
+        # Si se proporciona conversation_id, enviar un mensaje usando la API de Chatwoot
+        if conversation_id:
+            await chatwoot_message(conversation_id, "Aquí tienes los resultados de tu búsqueda de restaurantes.", api_access_token)
 
         return {"resultados": resultados}
         
@@ -57,6 +61,14 @@ async def get_restaurantes(
         raise HTTPException(status_code=500, detail="Error al buscar restaurantes")
 
 async def chatwoot_message(conversation_id: str, message: str, api_access_token: str):
+    """
+    Envia un mensaje a través de la API de Chatwoot usando el ID de la conversación.
+    
+    Args:
+        conversation_id (str): El ID de la conversación a la que se enviará el mensaje.
+        message (str): El mensaje que se enviará al cliente.
+        api_access_token (str): El token de acceso para autenticar la llamada a la API de Chatwoot.
+    """
     url = f"https://app.chatwoot.com/api/v1/accounts/99502/conversations/{conversation_id}/messages"
     headers = {
         "Content-Type": "application/json",
