@@ -15,7 +15,6 @@ logging.basicConfig(level=logging.INFO)
 BASE_ID = os.getenv('BASE_ID')
 AIRTABLE_PAT = os.getenv('AIRTABLE_PAT')
 GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY')
-N8N_WEBHOOK_URL = os.getenv('N8N_WEBHOOK_URL')
 
 DAYS_ES = {
     "Monday": "lunes",
@@ -190,15 +189,6 @@ def obtener_restaurantes_por_ciudad(
     except Exception as e:
         logging.error(f"Error al obtener restaurantes de la ciudad: {e}")
         raise HTTPException(status_code=500, detail="Error al obtener restaurantes de la ciudad")
-    
-def enviar_respuesta_a_n8n(resultados, conversation_id):
-    try:
-        response = requests.post(N8N_WEBHOOK_URL, json={"resultados": resultados, "conversation_id": conversation_id})
-        response.raise_for_status()
-        logging.info("Resultados enviados a n8n con éxito.")
-    except requests.exceptions.HTTPError as err:
-        logging.error(f"Error al enviar resultados a n8n: {err}")
-        raise
 
 @app.post("/procesar-variables")
 async def procesar_variables(request: Request):
@@ -259,10 +249,6 @@ async def procesar_variables(request: Request):
             }
             for restaurante in restaurantes
         ]
-
-        
-        enviar_respuesta_a_n8n(resultados)
-
        
         return {"mensaje": "Datos procesados y respuesta generada correctamente", "resultados": resultados}
     
