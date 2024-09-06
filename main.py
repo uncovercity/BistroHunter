@@ -123,18 +123,24 @@ def manejar_conversacion(conversation_id, mensaje_recibido):
 
     estado_conversaciones[conversation_id] = estado
 
-@app.post("/webhook/chatwoot")
-async def webhook_chatwoot(request: Request):
-    data = await request.json()
-    logging.info(f"Datos recibidos: {data}")
+    @app.post("/webhook/chatwoot")
+    async def webhook_chatwoot(request: Request):
+        data = await request.json()
+        logging.info(f"Datos recibidos: {data}")
     
-    conversation_id = data.get("conversation", {}).get("id")
-    mensaje_recibido = data.get("message", {}).get("content")
+        # Verificar si hay mensajes en la clave "messages"
+        if "messages" in data and len(data["messages"]) > 0:
+            message_data = data["messages"][0]  # Obtener el primer mensaje
+            conversation_id = message_data.get("conversation_id")
+            mensaje_recibido = message_data.get("content")
     
-    if conversation_id and mensaje_recibido:
-        manejar_conversacion(conversation_id, mensaje_recibido)
-    else:
-        logging.error("Faltan datos en la solicitud: conversación o mensaje")
+            if conversation_id and mensaje_recibido:
+                manejar_conversacion(conversation_id, mensaje_recibido)
+            else:
+                logging.error("Faltan datos en el mensaje recibido")
+        else:
+            logging.error("No se encontraron mensajes en los datos recibidos")
     
-    return {"status": "success"}
+        return {"status": "success"}
+
 
