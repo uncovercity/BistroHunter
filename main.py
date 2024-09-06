@@ -14,6 +14,10 @@ ACCOUNT_ID = os.getenv('ACCOUNT_ID')
 
 estado_conversaciones = {}
 
+@app.get("/")
+async def root():
+    return {"message": "Bienvenido a la API de BistroHunter"}
+
 def enviar_mensaje_chatwoot(conversation_id, mensaje):
     headers = {
         "Content-Type": "application/json",
