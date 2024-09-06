@@ -6,8 +6,6 @@ from datetime import datetime
 import os
 import requests
 
-sdjlghwsg´jogçedowgwqef sdfrq+w
-orqp ew rlvqweroqv ewr
 app = FastAPI()
 
 CHATWOOT_API_URL = "https://app.chatwoot.com/api/v1/accounts/{account_id}/conversations/{conversation_id}/messages"
@@ -133,13 +131,20 @@ async def webhook_chatwoot(request: Request):
     # Verificar si hay mensajes en la clave "messages"
     if "messages" in data and len(data["messages"]) > 0:
         message_data = data["messages"][0]  # Obtener el primer mensaje
-        conversation_id = message_data.get("conversation_id")
-        mensaje_recibido = message_data.get("content")
+        
+        # Verificar si el remitente es el cliente/contacto
+        sender_type = message_data.get("sender_type")
+        
+        if sender_type == "Contact":  # Solo procesar mensajes enviados por el cliente (contacto)
+            conversation_id = message_data.get("conversation_id")
+            mensaje_recibido = message_data.get("content")
 
-        if conversation_id and mensaje_recibido:
-            manejar_conversacion(conversation_id, mensaje_recibido)
+            if conversation_id and mensaje_recibido:
+                manejar_conversacion(conversation_id, mensaje_recibido)
+            else:
+                logging.error("Faltan datos en el mensaje recibido")
         else:
-            logging.error("Faltan datos en el mensaje recibido")
+            logging.info(f"Mensaje ignorado. El remitente es del tipo: {sender_type}")
     else:
         logging.error("No se encontraron mensajes en los datos recibidos")
 
