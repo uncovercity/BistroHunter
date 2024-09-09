@@ -161,7 +161,7 @@ def obtener_restaurantes_por_ciudad(
 
             params = {
                 "filterByFormula": filter_formula,
-                "sort[0][field]": "score",
+                "sort[0][field]": "NBH2",
                 "sort[0][direction]": "desc",
                 "maxRecords": 3
             }
@@ -179,7 +179,7 @@ def obtener_restaurantes_por_ciudad(
             distancia_km += 2.0
 
             
-            if distancia_km > 20:
+            if distancia_km > 8:
                 break
 
         if zona and location:
@@ -195,11 +195,11 @@ def obtener_restaurantes_por_ciudad(
 @app.post("/procesar-variables")
 async def procesar_variables(request: Request):
     try:
-        # Recibir los datos enviados desde n8n
+        
         data = await request.json()
         logging.info(f"Datos recibidos: {data}")
         
-        # Extraer las variables opcionales de los datos recibidos
+        
         city = data.get('city')
         date = data.get('date')
         price_range = data.get('price_range')
@@ -208,11 +208,9 @@ async def procesar_variables(request: Request):
         dish = data.get('dish')
         zona = data.get('zona')
 
-        # Validación básica: al menos una ciudad debe estar presente
         if not city:
             raise HTTPException(status_code=400, detail="La variable 'city' es obligatoria.")
 
-        # Procesar la fecha si se proporciona
         dia_semana = None
         if date:
             try:
@@ -221,7 +219,6 @@ async def procesar_variables(request: Request):
             except ValueError:
                 raise HTTPException(status_code=400, detail="La fecha proporcionada no tiene el formato correcto (YYYY-MM-DD).")
 
-        # Llamar a la función obtener_restaurantes_por_ciudad con los parámetros recibidos
         restaurantes = obtener_restaurantes_por_ciudad(
             city=city,
             dia_semana=dia_semana,
@@ -235,14 +232,13 @@ async def procesar_variables(request: Request):
         if not restaurantes:
             return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
         
-        
         resultados = [
             {
                 "titulo": restaurante['fields'].get('title', 'Sin título'),
                 "descripcion": restaurante['fields'].get('bh_message', 'Sin descripción'),
                 "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
                 "url": restaurante['fields'].get('url', 'No especificado'),
-                "puntuacion_bistrohunter": restaurante['fields'].get('score', 'N/A'),
+                "puntuacion_bistrohunter": restaurante['fields'].get('NBH2', 'N/A'),
                 "distancia": (
                     f"{haversine(float(restaurante['fields'].get('location/lng', 0)), float(restaurante['fields'].get('location/lat', 0)), lat_centro, lon_centro):.2f} km"
                     if zona and 'location/lng' in restaurante['fields'] and 'location/lat' in restaurante['fields'] else "No calculado"
