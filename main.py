@@ -40,7 +40,7 @@ async def get_restaurantes(
                 "descripcion": restaurante['fields'].get('bh_message', 'Sin descripción'),
                 "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
                 "url": restaurante['fields'].get('url', 'No especificado'),
-                "puntuacion_bistrohunter": restaurante['fields'].get('score', 'N/A'),
+                "puntuacion_bistrohunter": restaurante['fields'].get('NBH2', 'N/A'),
                 "distancia": restaurante.get('distancia', 'No calculado'),
                 "opciones_alimentarias": restaurante['fields'].get('tripadvisor_dietary_restrictions') if diet else None
             }
