@@ -147,7 +147,7 @@ def obtener_restaurantes_por_ciudad(
             lon_centro = location['lng']
 
     
-        while len(restaurantes_encontrados) < 3:
+        while len(restaurantes_encontrados) < 9:
 
             formula_parts_zona = formula_parts
 
@@ -163,7 +163,7 @@ def obtener_restaurantes_por_ciudad(
                 "filterByFormula": filter_formula,
                 "sort[0][field]": "NBH2",
                 "sort[0][direction]": "desc",
-                "maxRecords": 3
+                "maxRecords": 9
             }
 
             response_data = airtable_request(url, headers, params)
