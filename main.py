@@ -1,16 +1,17 @@
+#IMPORTS
 from fastapi import FastAPI, Query, HTTPException, Request
 from typing import Optional
-from bistrohunter import obtener_restaurantes_por_ciudad, obtener_dia_semana, haversine
+from bistrohunter import obtener_restaurantes_por_ciudad, obtener_dia_semana, haversine #Llama a las funciones que hemos definido en el otro archivo de código
 import logging
 from datetime import datetime
 
 app = FastAPI()
 
-@app.get("/")
+@app.get("/") #Define el mensaje por defecto de nuestra propia API 
 async def root():
     return {"message": "Bienvenido a la API de búsqueda de restaurantes"}
 
-@app.get("/api/getRestaurants")
+@app.get("/api/getRestaurants") #Dentro de nuestra propia API nosotros podemos llamar a diferentes funciones. Aquí llama a get_restaurantes
 async def get_restaurantes(
     city: str, 
     date: Optional[str] = Query(None, description="La fecha en la que se planea visitar el restaurante"), 
@@ -53,7 +54,7 @@ async def get_restaurantes(
         logging.error(f"Error al buscar restaurantes: {e}")
         raise HTTPException(status_code=500, detail="Error al buscar restaurantes")
 
-@app.post("/procesar-variables")
+@app.post("/procesar-variables") #Aquí llama a procesar_variables
 async def procesar_variables(request: Request):
     try:
         
