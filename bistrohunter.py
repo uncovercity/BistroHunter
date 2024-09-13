@@ -1,3 +1,4 @@
+#IMPORTS
 import os
 from typing import Optional, List
 from fastapi import FastAPI, Query, HTTPException, Request
@@ -8,10 +9,13 @@ from functools import wraps
 from cachetools import TTLCache
 from math import radians, cos, sin, asin, sqrt
 
+#Desplegar fast api (no tocar)
 app = FastAPI()
 
+#Configuración del logging (nos va a decir dónde están los fallos)
 logging.basicConfig(level=logging.INFO)
 
+#Secretos. Esto son urls, claves, tokens y demás que no deben mostrarse públicamente ni subirse a ningún sitio
 BASE_ID = os.getenv('BASE_ID')
 AIRTABLE_PAT = os.getenv('AIRTABLE_PAT')
 GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY')
@@ -27,6 +31,7 @@ DAYS_ES = {
     "Sunday": "domingo"
 }
 
+#Función que obtiene la fecha actual, obtiene el día de la semana que corresponde a esa fecha y cambia el día al español
 def obtener_dia_semana(fecha: datetime) -> str:
     try:
         dia_semana_en = fecha.strftime('%A')  
@@ -36,6 +41,7 @@ def obtener_dia_semana(fecha: datetime) -> str:
         logging.error(f"Error al obtener el día de la semana: {e}")
         raise HTTPException(status_code=500, detail="Error al procesar la fecha")
 
+#Calcula la distancia haversiana entre dos puntos (filtro de zona)
 def haversine(lon1, lat1, lon2, lat2):
     lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
     dlon = lon2 - lon1 
@@ -45,6 +51,7 @@ def haversine(lon1, lat1, lon2, lat2):
     km = 6367 * c
     return km
 
+#Función que obtiene las coordenadas de la zona que ha especificado el cliente
 def obtener_coordenadas(zona: str, ciudad: str) -> Optional[dict]:
     try:
         url = f"https://maps.googleapis.com/maps/api/geocode/json"
@@ -64,6 +71,7 @@ def obtener_coordenadas(zona: str, ciudad: str) -> Optional[dict]:
         logging.error(f"Error al obtener coordenadas de la zona: {e}")
         return None
 
+#Caché (no tocar)
 restaurantes_cache = TTLCache(maxsize=10000, ttl=60*30)
 
 def cache_airtable_request(func):
@@ -78,11 +86,15 @@ def cache_airtable_request(func):
     return wrapper
 
 @cache_airtable_request
+
+#Función que realiza la petición a la API de Airtable
 def airtable_request(url, headers, params):
     response = requests.get(url, headers=headers, params=params)
     return response.json() if response.status_code == 200 else None
 
 @cache_airtable_request
+
+#Función que establece límites geográficos en los que se va a buscar (2 km, 4 km, 6 km, etc.)
 def obtener_limites_geograficos(lat: float, lon: float, distancia_km: float = 2.0) -> dict:
     lat_delta = distancia_km / 111.0
     lon_delta = distancia_km / (111.0 * cos(radians(lat)))
@@ -95,6 +107,8 @@ def obtener_limites_geograficos(lat: float, lon: float, distancia_km: float = 2.
     }
 
 @cache_airtable_request
+
+#Función que toma las variables que le ha dado el asistente de IA para hacer la llamada a la API de Airtable con una serie de condiciones
 def obtener_restaurantes_por_ciudad(
     city: str, 
     dia_semana: Optional[str] = None, 
@@ -105,13 +119,13 @@ def obtener_restaurantes_por_ciudad(
     zona: Optional[str] = None
 ) -> List[dict]:
     try:
-        table_name = 'Restaurantes DB'
-        url = f"https://api.airtable.com/v0/{BASE_ID}/{table_name}"
+        table_name = 'Restaurantes DB' #Tabla donde tiene que mirar
+        url = f"https://api.airtable.com/v0/{BASE_ID}/{table_name}" #url de petición a Airtable
         headers = {
             "Authorization": f"Bearer {AIRTABLE_PAT}",
         }
 
-        # Construir los filtros constantes
+        # Construir los filtros constantes (en este caso ciudad, que es la única variable obligatoria y, por tanto, siempre va a estar)
         formula_parts = [
             f"OR({{city}}='{city}', {{city_string}}='{city}')"
         ]
@@ -147,7 +161,7 @@ def obtener_restaurantes_por_ciudad(
             lon_centro = location['lng']
 
     
-        while len(restaurantes_encontrados) < 3:
+        while len(restaurantes_encontrados) < 3: #Va a ir aumentando de 2 en 2 el radio en el que busca restaurantes respecto a la zona especificada por el cliente hasta que encuentre 3.
 
             formula_parts_zona = formula_parts
 
@@ -179,7 +193,7 @@ def obtener_restaurantes_por_ciudad(
             distancia_km += 2.0
 
             
-            if distancia_km > 8:
+            if distancia_km > 8: #Si llega a los 8 km. y aún no ha encontrado 3 restaurantes que valgan, rompe.
                 break
 
         if zona and location:
@@ -193,6 +207,8 @@ def obtener_restaurantes_por_ciudad(
     
 
 @app.post("/procesar-variables")
+
+#Esta es la función que convierte los datos que ha extraído el agente de IA en las variables que usa la función obtener_restaurantes y luego llama a esta misma función y extrae y ofrece los resultados
 async def procesar_variables(request: Request):
     try:
         
