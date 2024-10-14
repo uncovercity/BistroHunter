@@ -13,6 +13,7 @@ async def root():
 
 @app.get("/api/getRestaurants") #Dentro de nuestra propia API nosotros podemos llamar a diferentes funciones. Aquí llama a get_restaurantes
 async def get_restaurantes(
+    request: Request,  
     city: str, 
     date: Optional[str] = Query(None, description="La fecha en la que se planea visitar el restaurante"), 
     price_range: Optional[str] = Query(None, description="El rango de precios deseado para el restaurante"),
@@ -20,7 +21,6 @@ async def get_restaurantes(
     diet: Optional[str] = Query(None, description="Dieta que necesita el cliente"),
     dish: Optional[str] = Query(None, description="Plato por el que puede preguntar un cliente específicamente"),
     zona: Optional[str] = Query(None, description="Zona específica dentro de la ciudad"),
-    conversation_id: str = Query(None)
 ):
     try:
         dia_semana = None
@@ -28,44 +28,53 @@ async def get_restaurantes(
             fecha = datetime.strptime(date, "%Y-%m-%d")
             dia_semana = obtener_dia_semana(fecha)
 
-        # Llamar a la función para obtener los restaurantes
-        restaurantes = obtener_restaurantes_por_ciudad(city, dia_semana, price_range, cocina, diet, dish, zona)
+        # Llamar a la función para obtener los restaurantes y la fórmula de filtro
+        restaurantes, filter_formula = obtener_restaurantes_por_ciudad(city, dia_semana, price_range, cocina, diet, dish, zona)
         
-        if not restaurantes:
-            return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
+        # Capturar la URL completa y los parámetros de la solicitud
+        full_url = str(request.url)
+        request_method = request.method
+        api_call = f'{request_method} {full_url}'
 
-        # Extraer las coordenadas centrales (ya sea de la ciudad o de la zona)
-        if zona:
-            location = obtener_coordenadas(zona, city)
-        else:
-            location = obtener_coordenadas(city, city)
-        
-        lat_centro = location['lat']
-        lon_centro = location['lng']
-
-        # Generar los resultados con las distancias calculadas
-        resultados = [
-            {
-                "titulo": restaurante['fields'].get('title', 'Sin título'),
-                "descripcion": restaurante['fields'].get('bh_message', 'Sin descripción'),
-                "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
-                "url": restaurante['fields'].get('url', 'No especificado'),
-                "puntuacion_bistrohunter": restaurante['fields'].get('NBH2', 'N/A'),
-                "distancia": (
-                    f"{haversine(float(restaurante['fields'].get('location/lng', 0)), float(restaurante['fields'].get('location/lat', 0)), lon_centro, lat_centro):.2f} km"
-                    if 'location/lng' in restaurante['fields'] and 'location/lat' in restaurante['fields'] else "No calculado"
-                ),
-                "opciones_alimentarias": restaurante['fields'].get('tripadvisor_dietary_restrictions') if diet else None
+        # Verifica si se encontraron restaurantes y accede correctamente a sus campos
+        if restaurantes:
+            return {
+                "restaurants": [
+                    {
+                        "title": r['fields'].get('title', 'Sin título'),
+                        "description": r['fields'].get('bh_message', 'Sin descripción'),
+                        "price_range": r['fields'].get('price_range', 'No especificado'),
+                        "score": r['fields'].get('NBH2', 'N/A'),
+                        "url": r['fields'].get('url', 'No especificado')
+                    } for r in restaurantes
+                ],
+                "variables": {
+                    "city": city,
+                    "price_range": price_range,
+                    "cuisine_type": cocina,
+                    "diet": diet,
+                    "dish": dish,
+                    "zone": zona
+                },
+                "api_call": api_call
             }
-            for restaurante in restaurantes
-        ]
-
-        return {"resultados": resultados}
-        
+        else:
+            return {
+                "mensaje": "No se encontraron restaurantes con los filtros aplicados.",
+                "variables": {
+                    "city": city,
+                    "price_range": price_range,
+                    "cuisine_type": cocina,
+                    "diet": diet,
+                    "dish": dish,
+                    "zone": zona
+                },
+                "api_call": api_call
+            }
     except Exception as e:
         logging.error(f"Error al buscar restaurantes: {e}")
         raise HTTPException(status_code=500, detail="Error al buscar restaurantes")
-
+        
 @app.post("/procesar-variables") #Aquí llama a procesar_variables
 async def procesar_variables(request: Request):
     try:
@@ -91,6 +100,7 @@ async def procesar_variables(request: Request):
             except ValueError:
                 raise HTTPException(status_code=400, detail="La fecha proporcionada no tiene el formato correcto (YYYY-MM-DD).")
 
+        # Llamar a la función para obtener los restaurantes
         restaurantes = obtener_restaurantes_por_ciudad(
             city=city,
             dia_semana=dia_semana,
@@ -100,38 +110,47 @@ async def procesar_variables(request: Request):
             dish=dish,
             zona=zona
         )
-        
-        if not restaurantes:
-            return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
 
-        # Extraer las coordenadas centrales (ya sea de la ciudad o de la zona)
-        if zona:
-            location = obtener_coordenadas(zona, city)
-        else:
-            location = obtener_coordenadas(city, city)
+        # Capturar la URL completa y los parámetros de la solicitud
+        full_url = str(request.url)
+        request_method = request.method
+        api_call = f'{request_method} {full_url}'
 
-        lat_centro = location['lat']
-        lon_centro = location['lng']
-
-        # Generar los resultados con las distancias calculadas
-        resultados = [
-            {
-                "titulo": restaurante['fields'].get('title', 'Sin título'),
-                "descripcion": restaurante['fields'].get('bh_message', 'Sin descripción'),
-                "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
-                "url": restaurante['fields'].get('url', 'No especificado'),
-                "puntuacion_bistrohunter": restaurante['fields'].get('NBH2', 'N/A'),
-                "distancia": (
-                    f"{haversine(float(restaurante['fields'].get('location/lng', 0)), float(restaurante['fields'].get('location/lat', 0)), lon_centro, lat_centro):.2f} km"
-                    if 'location/lng' in restaurante['fields'] and 'location/lat' in restaurante['fields'] else "No calculado"
-                ),
-                "opciones_alimentarias": restaurante['fields'].get('tripadvisor_dietary_restrictions') if diet else None
+        # Devolver los restaurantes, las variables y la llamada a la API
+        if restaurantes:
+            return {
+                "restaurants": [
+                    {
+                        "title": r['fields'].get('title', 'Sin título'),
+                        "description": r['fields'].get('bh_message', 'Sin descripción'),
+                        "price_range": r['fields'].get('price_range', 'No especificado'),
+                        "score": r['fields'].get('NBH2', 'N/A'),
+                        "url": r['fields'].get('url', 'No especificado')
+                    } for r in restaurantes
+                ],
+                "variables": {
+                    "city": city,
+                    "price_range": price_range,
+                    "cuisine_type": cocina,
+                    "diet": diet,
+                    "dish": dish,
+                    "zone": zona
+                },
+                "api_call": api_call  # Devolver la llamada a la API
             }
-            for restaurante in restaurantes
-        ]
-
-        return {"mensaje": "Datos procesados y respuesta generada correctamente", "resultados": resultados}
-    
+        else:
+            return {
+                "mensaje": "No se encontraron restaurantes con los filtros aplicados.",
+                "variables": {
+                    "city": city,
+                    "price_range": price_range,
+                    "cuisine_type": cocina,
+                    "diet": diet,
+                    "dish": dish,
+                    "zone": zona
+                },
+                "api_call": api_call
+            }
     except Exception as e:
         logging.error(f"Error al procesar variables: {e}")
         return {"error": "Ocurrió un error al procesar las variables"}
