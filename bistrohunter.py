@@ -88,7 +88,9 @@ def cache_airtable_request(func):
 @cache_airtable_request
 
 #Función que realiza la petición a la API de Airtable
-def airtable_request(url, headers, params):
+def airtable_request(url, headers, params, view_id: Optional[str] = None):
+    if view_id:
+        params["view"] = view_id
     response = requests.get(url, headers=headers, params=params)
     return response.json() if response.status_code == 200 else None
 
@@ -117,7 +119,7 @@ def obtener_restaurantes_por_ciudad(
     diet: Optional[str] = None,
     dish: Optional[str] = None,
     zona: Optional[str] = None
-) -> List[dict]:
+) -> (List[dict], str):  # Añadimos str para devolver también la fórmula
     try:
         table_name = 'Restaurantes DB'
         url = f"https://api.airtable.com/v0/{BASE_ID}/{table_name}"
@@ -125,7 +127,7 @@ def obtener_restaurantes_por_ciudad(
             "Authorization": f"Bearer {AIRTABLE_PAT}",
         }
 
-        # Inicializamos la fórmula de búsqueda solo con la ciudad en la columna address_TESTING
+        # Inicializamos la fórmula de búsqueda
         formula_parts = []
 
         if dia_semana:
@@ -139,12 +141,13 @@ def obtener_restaurantes_por_ciudad(
 
         if diet:
             formula_parts.append(f"FIND('{diet}', {{comida_[TESTING]}}) > 0")
+        
         if dish:
             formula_parts.append(f"FIND('{dish}', ARRAYJOIN({{comida_[TESTING]}}, ', ')) > 0")
 
+        # Si especifica una zona, obtenemos las coordenadas
         restaurantes_encontrados = []
         distancia_km = 2.0
-        location = None
 
         # Obtener coordenadas de la ciudad usando Google Maps
         location = obtener_coordenadas(city, city)
@@ -154,7 +157,7 @@ def obtener_restaurantes_por_ciudad(
         lat_centro = location['lat']
         lon_centro = location['lng']
 
-        # Si se especifica una zona, se obtiene las coordenadas de esa zona.
+        # Si se especifica una zona, obtenemos coordenadas de la zona
         if zona:
             location_zona = obtener_coordenadas(zona, city)
             if not location_zona:
@@ -180,7 +183,7 @@ def obtener_restaurantes_por_ciudad(
                 "maxRecords": 3
             }
 
-            response_data = airtable_request(url, headers, params)
+            response_data = airtable_request(url, headers, params, view_id="viw6z7g5ZZs3mpy3S")
             if response_data and 'records' in response_data:
                 restaurantes_filtrados = [
                     restaurante for restaurante in response_data['records']
@@ -197,7 +200,8 @@ def obtener_restaurantes_por_ciudad(
         if location:
             restaurantes_encontrados.sort(key=lambda r: haversine(lon_centro, lat_centro, float(r['fields'].get('location/lng', 0)), float(r['fields'].get('location/lat', 0))))
 
-        return restaurantes_encontrados[:3]
+        # Devolvemos los restaurantes encontrados y la fórmula de filtro usada
+        return restaurantes_encontrados[:3], filter_formula
 
     except Exception as e:
         logging.error(f"Error al obtener restaurantes de la ciudad: {e}")
@@ -209,10 +213,8 @@ def obtener_restaurantes_por_ciudad(
 #Esta es la función que convierte los datos que ha extraído el agente de IA en las variables que usa la función obtener_restaurantes y luego llama a esta misma función y extrae y ofrece los resultados
 async def procesar_variables(request: Request):
     try:
-        
         data = await request.json()
         logging.info(f"Datos recibidos: {data}")
-        
         
         city = data.get('city')
         date = data.get('date')
@@ -233,7 +235,8 @@ async def procesar_variables(request: Request):
             except ValueError:
                 raise HTTPException(status_code=400, detail="La fecha proporcionada no tiene el formato correcto (YYYY-MM-DD).")
 
-        restaurantes = obtener_restaurantes_por_ciudad(
+        # Llama a la función obtener_restaurantes_por_ciudad y construye la filter_formula
+        restaurantes, filter_formula = obtener_restaurantes_por_ciudad(
             city=city,
             dia_semana=dia_semana,
             price_range=price_range,
@@ -242,10 +245,31 @@ async def procesar_variables(request: Request):
             dish=dish,
             zona=zona
         )
+
+        # Capturar la URL completa y los parámetros de la solicitud
+        full_url = str(request.url)
+        request_method = request.method
+
+        # Capturar la información del request
+        http_request_info = f'{request_method} {full_url} HTTP/1.1 200 OK'
         
+        # Si no se encontraron restaurantes, devolver el mensaje y el request_info
         if not restaurantes:
-            return {"mensaje": "No se encontraron restaurantes con los filtros aplicados."}
+            return {
+                "request_info": http_request_info,
+                "variables": {
+                    "city": city,
+                    "zone": zona,
+                    "cuisine_type": cocina,
+                    "price_range": price_range,
+                    "date": date,
+                    "alimentary_restrictions": diet,
+                    "specific_dishes": dish
+                },
+                "mensaje": "No se encontraron restaurantes con los filtros aplicados."
+            }
         
+        # Procesar los restaurantes
         resultados = [
             {
                 "titulo": restaurante['fields'].get('title', 'Sin título'),
@@ -262,7 +286,20 @@ async def procesar_variables(request: Request):
             for restaurante in restaurantes
         ]
         
-        return {"mensaje": "Datos procesados y respuesta generada correctamente", "resultados": resultados}
+        # Devolver los resultados junto con el log de la petición HTTP
+        return {
+            "request_info": http_request_info,
+            "variables": {
+                "city": city,
+                "zone": zona,
+                "cuisine_type": cocina,
+                "price_range": price_range,
+                "date": date,
+                "alimentary_restrictions": diet,
+                "specific_dishes": dish
+            },
+            "resultados": resultados
+        }
     
     except Exception as e:
         logging.error(f"Error al procesar variables: {e}")
