@@ -137,13 +137,13 @@ def obtener_restaurantes_por_ciudad(
             formula_parts.append(f"FIND('{price_range}', ARRAYJOIN({{price_range}}, ', ')) > 0")
 
         if cocina:
-            formula_parts.append(f"FIND('{cocina}', {{comida_[TESTING]}}) > 0")
+            formula_parts.append(f"FIND(LOWER('{cocina}'), LOWER({{comida_[TESTING]}})) > 0")
 
         if diet:
-            formula_parts.append(f"FIND('{diet}', {{comida_[TESTING]}}) > 0")
+            formula_parts.append(f"FIND(LOWER('{diet}'), LOWER({{comida_[TESTING]}})) > 0")
         
         if dish:
-            formula_parts.append(f"FIND('{dish}', ARRAYJOIN({{comida_[TESTING]}}, ', ')) > 0")
+            formula_parts.append(f"FIND(LOWER('{dish}'), LOWER(ARRAYJOIN({{comida_[TESTING]}}, ', '))) > 0")
 
         # Si especifica una zona, obtenemos las coordenadas
         restaurantes_encontrados = []
