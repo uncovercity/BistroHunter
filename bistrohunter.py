@@ -165,8 +165,8 @@ def obtener_restaurantes_por_ciudad(
             lat_centro = location_zona['lat']
             lon_centro = location_zona['lng']
 
-        # Búsqueda iterativa en un radio creciente hasta que se encuentren al menos 3 restaurantes
-        while len(restaurantes_encontrados) < 3:
+        # Búsqueda iterativa en un radio creciente hasta que se encuentren al menos 10 restaurantes
+        while len(restaurantes_encontrados) < 10:
             formula_parts_zona = formula_parts.copy()
 
             limites = obtener_limites_geograficos(lat_centro, lon_centro, distancia_km)
@@ -180,7 +180,7 @@ def obtener_restaurantes_por_ciudad(
                 "filterByFormula": filter_formula,
                 "sort[0][field]": "NBH2",
                 "sort[0][direction]": "desc",
-                "maxRecords": 3
+                "maxRecords": 10
             }
 
             response_data = airtable_request(url, headers, params, view_id="viw6z7g5ZZs3mpy3S")
@@ -201,7 +201,7 @@ def obtener_restaurantes_por_ciudad(
             restaurantes_encontrados.sort(key=lambda r: haversine(lon_centro, lat_centro, float(r['fields'].get('location/lng', 0)), float(r['fields'].get('location/lat', 0))))
 
         # Devolvemos los restaurantes encontrados y la fórmula de filtro usada
-        return restaurantes_encontrados[:3], filter_formula
+        return restaurantes_encontrados[:10], filter_formula
 
     except Exception as e:
         logging.error(f"Error al obtener restaurantes de la ciudad: {e}")
