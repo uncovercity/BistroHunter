@@ -272,6 +272,7 @@ async def procesar_variables(request: Request):
         # Procesar los restaurantes
         resultados = [
             {
+                "cid": restaurante['fields'].get('cid'),
                 "titulo": restaurante['fields'].get('title', 'Sin título'),
                 "descripcion": restaurante['fields'].get('bh_message', 'Sin descripción'),
                 "rango_de_precios": restaurante['fields'].get('price_range', 'No especificado'),
