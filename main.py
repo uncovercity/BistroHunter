@@ -41,7 +41,7 @@ async def get_restaurantes(
             return {
                 "restaurants": [
                     {
-                        "cid": restaurante['fields'].get('cid'),
+                        "cid": r['fields'].get('cid'),
                         "title": r['fields'].get('title', 'Sin título'),
                         "description": r['fields'].get('bh_message', 'Sin descripción'),
                         "price_range": r['fields'].get('price_range', 'No especificado'),
