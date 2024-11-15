@@ -126,7 +126,7 @@ async def procesar_variables(request: Request):
                     {
                         "cid": r['fields'].get('cid'),
                         "title": r['fields'].get('title', 'Sin título'),
-                        "description": r['fields'].get('bh_message', 'Sin descripción'),
+                        "bh_message": r['fields'].get('bh_message', 'Sin descripción'),
                         "price_range": r['fields'].get('price_range', 'No especificado'),
                         "puntuacion_bistrohunter": r['fields'].get('NBH2', 'N/A'),
                         "url": r['fields'].get('url', 'No especificado')
