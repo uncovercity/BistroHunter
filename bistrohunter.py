@@ -353,12 +353,7 @@ async def procesar_variables(request: Request):
         # Procesar los restaurantes
         resultados = [
             {
-                "cid": restaurante['fields'].get('cid'),
-                "title": restaurante['fields'].get('title', 'Sin título'),
-                "bh_message": restaurante['fields'].get('bh_message', 'Sin descripción'),
-                "price_range": restaurante['fields'].get('price_range', 'No especificado'),
-                "url": restaurante['fields'].get('url', 'No especificado'),
-                "puntuacion_bistrohunter": restaurante['fields'].get('NBH2', 'N/A')
+                "bh_message": restaurante['fields'].get('bh_message', 'Sin descripción')
             }
             for restaurante in restaurantes
         ]
