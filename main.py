@@ -124,7 +124,8 @@ async def procesar_variables(request: Request):
             return {
                 "restaurants": [
                     {
-                        "bh_message": r['fields'].get('bh_message', 'Sin descripción')
+                        "bh_message": r['fields'].get('bh_message', 'Sin descripción'),
+                        "url": restaurante['fields'].get('url', 'No especificado')
                     } for r in restaurantes
                 ],
                 "variables": {
