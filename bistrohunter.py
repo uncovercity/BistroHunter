@@ -57,7 +57,8 @@ def obtener_coordenadas(zona: str, ciudad: str) -> Optional[dict]:
         url = f"https://maps.googleapis.com/maps/api/geocode/json"
         params = {
             "address": f"{zona}, {ciudad}",
-            "key": GOOGLE_MAPS_API_KEY
+            "key": GOOGLE_MAPS_API_KEY,
+            "components": "country:ES"
         }
         response = requests.get(url, params=params)
         data = response.json()
