@@ -157,10 +157,10 @@ def obtener_restaurantes_por_ciudad(
             formula_parts.append(f"FIND(LOWER('{cocina}'), LOWER({{categories_string}})) > 0")
 
         if diet:
-            formula_parts.append(f"FIND(LOWER('{diet}'), LOWER({{comida_[TESTING]}})) > 0")
+            formula_parts.append(f"SEARCH('{diet}', {{categories_string}}) > 0")
         
         if dish:
-            formula_parts.append(f"FIND(LOWER('{dish}'), LOWER(ARRAYJOIN({{comida_[TESTING]}}, ', '))) > 0")
+            formula_parts.append(f"SEARCH('{dish}', {{google_reviews}}) > 0")
 
         # Lista para almacenar todos los restaurantes encontrados
         restaurantes_encontrados = []
@@ -228,7 +228,7 @@ def obtener_restaurantes_por_ciudad(
         else:
             # Si no se especifica zona, procedemos como antes
             # Obtenemos las coordenadas de la ciudad
-            location = obtener_coordenadas(city, city)
+            location = obtener_coordenadas(city, "España")
             if not location:
                 raise HTTPException(status_code=404, detail="Ciudad no encontrada.")
             
