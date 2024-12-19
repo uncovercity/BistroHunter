@@ -37,7 +37,7 @@ def calcular_bounding_box(lat, lon, radio_km=1):
     delta_lat = radio_km / km_por_grado_lat
 
     # Para la longitud, depende de la latitud
-    cos_lat = math.cos(math.radians(lat))
+    cos_lat = cos(radians(lat))
     km_por_grado_lon = 111.32 * cos_lat
     delta_lon = radio_km / km_por_grado_lon
 
