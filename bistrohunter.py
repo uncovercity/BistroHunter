@@ -279,7 +279,7 @@ def obtener_restaurantes_por_ciudad(
                 formula_parts_city.append(f"{{location/lng}} <= {limites['lon_max']}")
 
                 filter_formula = "AND(" + ", ".join(formula_parts_city) + ")"
-                logging.info(f"Fórmula de filtro construida: {filter_formula} para distancia {distancia_km} km")
+                logging.info(f"Fórmula de filtro construida: {filter_formula} para radio {radio_km} km")
 
                 params = {
                     "filterByFormula": filter_formula,
