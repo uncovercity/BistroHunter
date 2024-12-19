@@ -54,7 +54,7 @@ def calcular_bounding_box(lat, lon, radio_km=1):
     }
 
 #Función que obtiene las coordenadas de la zona que ha especificado el cliente
-def obtener_coordenadas_zona(zona: str, ciudad: str) -> Optional[dict]:
+def obtener_coordenadas_zona(zona: str, ciudad: str, radio_km: float=1) -> Optional[dict]:
     try:
         url = f"https://maps.googleapis.com/maps/api/geocode/json"
         params = {
@@ -81,7 +81,7 @@ def obtener_coordenadas_zona(zona: str, ciudad: str) -> Optional[dict]:
         logging.error(f"Error al obtener coordenadas de la zona: {e}")
         return None
 
-def obtener_coordenadas(ciudad: str):
+def obtener_coordenadas(ciudad: str, radio_km: float=1):
     try:
         url = f"https://maps.googleapis.com/maps/api/geocode/json"
         params = {
