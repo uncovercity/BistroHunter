@@ -210,7 +210,7 @@ def obtener_restaurantes_por_ciudad(
             # Iteramos sobre cada zona en la lista
             for zona_item in zonas_list:
                 # Obtenemos las coordenadas y bounding_box de la zona
-                location_zona = obtener_coordenadas_zona(zona_item, city)
+                location_zona = obtener_coordenadas_zona(zona_item, city, radio_km)
                 if not location_zona:
                     logging.error(f"Zona '{zona_item}' no encontrada.")
                     continue  # Saltamos a la siguiente zona si no se encuentra
