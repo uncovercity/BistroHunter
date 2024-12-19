@@ -21,26 +21,6 @@ AIRTABLE_PAT = os.getenv('AIRTABLE_PAT')
 GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY')
 N8N_WEBHOOK_URL = os.getenv('N8N_WEBHOOK_URL')
 
-DAYS_ES = {
-    "Monday": "lunes",
-    "Tuesday": "martes",
-    "Wednesday": "miércoles",
-    "Thursday": "jueves",
-    "Friday": "viernes",
-    "Saturday": "sábado",
-    "Sunday": "domingo"
-}
-
-#Función que obtiene la fecha actual, obtiene el día de la semana que corresponde a esa fecha y cambia el día al español
-def obtener_dia_semana(fecha: datetime) -> str:
-    try:
-        dia_semana_en = fecha.strftime('%A')  
-        dia_semana_es = DAYS_ES.get(dia_semana_en, dia_semana_en)  
-        return dia_semana_es.lower()
-    except Exception as e:
-        logging.error(f"Error al obtener el día de la semana: {e}")
-        raise HTTPException(status_code=500, detail="Error al procesar la fecha")
-
 #Calcula la distancia haversiana entre dos puntos (filtro de zona)
 def haversine(lon1, lat1, lon2, lat2):
     lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
@@ -50,6 +30,28 @@ def haversine(lon1, lat1, lon2, lat2):
     c = 2 * asin(sqrt(a)) 
     km = 6367 * c
     return km
+
+def calcular_bounding_box(lat, lon, radio_km):
+    # Aproximación: 1 grado de latitud ~ 111.32 km
+    km_por_grado_lat = 111.32
+    delta_lat = radio_km / km_por_grado_lat
+
+    # Para la longitud, depende de la latitud
+    cos_lat = math.cos(math.radians(lat))
+    km_por_grado_lon = 111.32 * cos_lat
+    delta_lon = radio_km / km_por_grado_lon
+
+    lat_min = lat - delta_lat
+    lat_max = lat + delta_lat
+    lon_min = lon - delta_lon
+    lon_max = lon + delta_lon
+
+    return {
+        "lat_min": lat_min,
+        "lat_max": lat_max,
+        "lon_min": lon_min,
+        "lon_max": lon_max
+    }
 
 #Función que obtiene las coordenadas de la zona que ha especificado el cliente
 def obtener_coordenadas_zona(zona: str, ciudad: str) -> Optional[dict]:
@@ -65,10 +67,12 @@ def obtener_coordenadas_zona(zona: str, ciudad: str) -> Optional[dict]:
         if data['status'] == 'OK':
             geometry = data['results'][0]['geometry']
             location = geometry['location']
-            viewport = geometry['viewport']
+            lat_central = location['lat']
+            lon_central = location['lng']
+            bounding_box = calcular_bounding_box(lat_central, lon_central, radio_km)
             return {
                 "location": location,
-                "viewport": viewport
+                "bounding_box": bounding_box
             }
         else:
             logging.error(f"Error en la geocodificación: {data['status']}")
@@ -77,7 +81,7 @@ def obtener_coordenadas_zona(zona: str, ciudad: str) -> Optional[dict]:
         logging.error(f"Error al obtener coordenadas de la zona: {e}")
         return None
 
-def obtener_coordenadas(ciudad: str) -> Optional[dict]:
+def obtener_coordenadas(ciudad: str):
     try:
         url = f"https://maps.googleapis.com/maps/api/geocode/json"
         params = {
@@ -90,10 +94,12 @@ def obtener_coordenadas(ciudad: str) -> Optional[dict]:
         if data['status'] == 'OK':
             geometry = data['results'][0]['geometry']
             location = geometry['location']
-            viewport = geometry['viewport']
+            lat_central = location['lat']
+            lon_central = location['lng']
+            bounding_box = calcular_bounding_box(lat_central, lon_central, 1)
             return {
                 "location": location,
-                "viewport": viewport
+                "bounding_box": bounding_box
             }
         else:
             logging.error(f"Error en la geocodificación: {data['status']}")
@@ -101,7 +107,7 @@ def obtener_coordenadas(ciudad: str) -> Optional[dict]:
     except Exception as e:
         logging.error(f"Error al obtener coordenadas de la zona: {e}")
         return None
-
+        
 #Caché (no tocar)
 restaurantes_cache = TTLCache(maxsize=10000, ttl=60*30)
 
@@ -127,20 +133,6 @@ def airtable_request(url, headers, params, view_id: Optional[str] = None):
 
 @cache_airtable_request
 
-#Función que establece límites geográficos en los que se va a buscar (2 km, 4 km, 6 km, etc.)
-def obtener_limites_geograficos(lat: float, lon: float, distancia_km: float = 2.0) -> dict:
-    lat_delta = distancia_km / 111.0
-    lon_delta = distancia_km / (111.0 * cos(radians(lat)))
-    
-    return {
-        "lat_min": lat - lat_delta,
-        "lat_max": lat + lat_delta,
-        "lon_min": lon - lon_delta,
-        "lon_max": lon + lon_delta
-    }
-
-@cache_airtable_request
-
 # Función que toma las variables que le ha dado el asistente de IA para hacer la llamada a la API de Airtable con una serie de condiciones
 def obtener_restaurantes_por_ciudad(
     city: str, 
@@ -161,9 +153,6 @@ def obtener_restaurantes_por_ciudad(
 
         # Inicializamos la fórmula de búsqueda
         formula_parts = []
-
-        if dia_semana:
-            formula_parts.append(f"FIND('{dia_semana}', ARRAYJOIN({{day_opened}}, ', ')) > 0")
 
         if price_range:
             ranges = price_range.split(',')
@@ -202,23 +191,23 @@ def obtener_restaurantes_por_ciudad(
 
             # Iteramos sobre cada zona en la lista
             for zona_item in zonas_list:
-                # Obtenemos las coordenadas y viewport de la zona
+                # Obtenemos las coordenadas y bounding_box de la zona
                 location_zona = obtener_coordenadas_zona(zona_item, city)
                 if not location_zona:
                     logging.error(f"Zona '{zona_item}' no encontrada.")
                     continue  # Saltamos a la siguiente zona si no se encuentra
 
                 location = location_zona['location']
-                viewport = location_zona['viewport']
+                bounding_box = location_zona['bounding_box']
 
                 lat_centro = location['lat']
                 lon_centro = location['lng']
 
-                # Extraemos los límites del viewport
-                lat_min = min(viewport['southwest']['lat'], viewport['northeast']['lat'])
-                lat_max = max(viewport['southwest']['lat'], viewport['northeast']['lat'])
-                lon_min = min(viewport['southwest']['lng'], viewport['northeast']['lng'])
-                lon_max = max(viewport['southwest']['lng'], viewport['northeast']['lng'])
+                # Extraemos los límites del bounding_box
+                lat_min = bounding_box['lat_min']
+                lat_max = bounding_box['lat_max']
+                lon_min = bounding_box['lon_min']
+                lon_max = bounding_box['lon_max']
 
                 formula_parts_zona = formula_parts.copy()
 
@@ -261,11 +250,11 @@ def obtener_restaurantes_por_ciudad(
             lon_centro = location['location']['lng']
 
             # Realizamos una búsqueda inicial dentro de la ciudad
-            distancia_km = 0.5  # Comenzamos con un radio pequeño, 0.5 km
+            radio_km = 0.5  # Comenzamos con un radio pequeño, 0.5 km
             while len(restaurantes_encontrados) < 10:
                 formula_parts_city = formula_parts.copy()
 
-                limites = obtener_limites_geograficos(lat_centro, lon_centro, distancia_km)
+                limites = calcular_bounding_box(lat_centro, lon_centro, radio_km)
                 formula_parts_city.append(f"{{location/lat}} >= {limites['lat_min']}")
                 formula_parts_city.append(f"{{location/lat}} <= {limites['lat_max']}")
                 formula_parts_city.append(f"{{location/lng}} >= {limites['lon_min']}")
@@ -292,9 +281,9 @@ def obtener_restaurantes_por_ciudad(
                 if len(restaurantes_encontrados) >= 10:
                     break  # Si alcanzamos 10 resultados, detenemos la búsqueda
 
-                distancia_km += 0.5  # Aumentamos el radio
+                radio_km += 0.5  # Aumentamos el radio
 
-                if distancia_km > 2:  # Limitar el rango máximo de búsqueda a 2 km
+                if radio_km > 2:  # Limitar el rango máximo de búsqueda a 2 km
                     break
 
             # Ordenamos los restaurantes por proximidad si se especifica
