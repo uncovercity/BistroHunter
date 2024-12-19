@@ -31,7 +31,7 @@ def haversine(lon1, lat1, lon2, lat2):
     km = 6367 * c
     return km
 
-def calcular_bounding_box(lat, lon, radio_km):
+def calcular_bounding_box(lat, lon, radio_km=1):
     # Aproximación: 1 grado de latitud ~ 111.32 km
     km_por_grado_lat = 111.32
     delta_lat = radio_km / km_por_grado_lat
@@ -96,7 +96,7 @@ def obtener_coordenadas(ciudad: str):
             location = geometry['location']
             lat_central = location['lat']
             lon_central = location['lng']
-            bounding_box = calcular_bounding_box(lat_central, lon_central, 1)
+            bounding_box = calcular_bounding_box(lat_central, lon_central, radio_km)
             return {
                 "location": location,
                 "bounding_box": bounding_box
