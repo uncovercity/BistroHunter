@@ -53,6 +53,33 @@ def calcular_bounding_box(lat, lon, radio_km=1):
         "lon_max": lon_max
     }
 
+def busqueda_coordenadas_airtable(coordenadas):
+   try:
+    url = f"https://maps.googleapis.com/maps/api/geocode/json"
+    params = {
+        "address": f"{coordenadas}",
+        "key": GOOGLE_MAPS_API_KEY,
+        "components": "country:ES"
+    }
+    response = requests.get(url, params=params)
+    data = response.json()
+    if data['status'] == 'OK':
+        geometry = data['results'][0]['geometry']
+        location = geometry['location']
+        lat_central = location['lat']
+        lon_central = location['lng']
+        bounding_box = calcular_bounding_box(lat_central, lon_central, radio_km)
+        return {
+            "location": location,
+            "bounding_box": bounding_box
+        }
+    else:
+        logging.error(f"Error en la geocodificación: {data['status']}")
+        return None
+except Exception as e:
+    logging.error(f"Error al obtener coordenadas de la zona: {e}")
+    return None
+
 #Función que obtiene las coordenadas de la zona que ha especificado el cliente
 def obtener_coordenadas_zona(zona: str, ciudad: str, radio_km: float) -> Optional[dict]:
     try:
@@ -142,6 +169,7 @@ def obtener_restaurantes_por_ciudad(
     diet: Optional[str] = None,
     dish: Optional[str] = None,
     zona: Optional[str] = None,
+    coordenadas: Optional[str] = None,
     radio_km: float = 1.0,
     sort_by_proximity: bool = True  # Nuevo parámetro para ordenar por proximidad
 ) -> (List[dict], str):
@@ -261,7 +289,7 @@ def obtener_restaurantes_por_ciudad(
         else:
             # Si no se especifica zona, procedemos como antes
             # Obtenemos las coordenadas de la ciudad
-            location = obtener_coordenadas(city)
+            location = busqueda_coordenadas_airtable(coordenadas)
             if not location:
                 raise HTTPException(status_code=404, detail="Ciudad no encontrada.")
             
