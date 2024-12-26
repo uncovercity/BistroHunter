@@ -53,7 +53,7 @@ def calcular_bounding_box(lat, lon, radio_km=1):
         "lon_max": lon_max
     }
 
-def busqueda_coordenadas_airtable(coordenadas):
+def busqueda_coordenadas_airtable(coordenadas,radio_km=1.0):
    try:
     url = f"https://maps.googleapis.com/maps/api/geocode/json"
     params = {
@@ -366,6 +366,7 @@ async def procesar_variables(request: Request):
         diet = data.get('diet')
         dish = data.get('dish')
         zona = data.get('zona')
+        coordenadas = data.get('coordenadas')
 
         if not city:
             raise HTTPException(status_code=400, detail="La variable 'city' es obligatoria.")
