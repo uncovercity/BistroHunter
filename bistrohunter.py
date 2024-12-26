@@ -237,7 +237,7 @@ def obtener_restaurantes_por_ciudad(
                 formula_parts_zona.append(f"{{location/lng}} <= {lon_max}")
 
                 filter_formula_zona = "AND(" + ", ".join(formula_parts_zona) + ")"
-                logging.info(f"Fórmula de filtro construida: {filter_formula_zona} para zona '{zona_item}'")
+                logging.info(f"Fórmula de filtro construida: location = {lat_centro, lon_centro}, bounding_box = {filter_formula_zona} para zona '{zona_item}'")
 
                 params = {
                     "filterByFormula": filter_formula_zona,
