@@ -204,13 +204,12 @@ def obtener_restaurantes_por_ciudad(
                 lon_min = bounding_box['lon_min']
                 lon_max = bounding_box['lon_max']
 
-                formula_parts_zona = formula_parts.copy()
-                formula_parts_zona.append(f"{{location/lat}} >= {lat_min}")
-                formula_parts_zona.append(f"{{location/lat}} <= {lat_max}")
-                formula_parts_zona.append(f"{{location/lng}} >= {lon_min}")
-                formula_parts_zona.append(f"{{location/lng}} <= {lon_max}")
+                formula_parts.append(f"{{location/lat}} >= {lat_min}")
+                formula_parts.append(f"{{location/lat}} <= {lat_max}")
+                formula_parts.append(f"{{location/lng}} >= {lon_min}")
+                formula_parts.append(f"{{location/lng}} <= {lon_max}")
 
-                filter_formula = "AND(" + ", ".join(formula_parts_zona) + ")"
+                filter_formula = "AND(" + ", ".join(formula_parts) + ")"
                 logging.info(f"Fórmula de filtro construida para zona '{zona_item}': {filter_formula}")
 
                 params = {
@@ -245,13 +244,12 @@ def obtener_restaurantes_por_ciudad(
                 bounding_box = calcular_bounding_box(lat_centro, lon_centro, radio_km=2)
             
                 # Crear la fórmula para filtrar en Airtable usando la bounding box
-                formula_parts_city = formula_parts.copy()
                 formula_parts.append(f"{{location/lat}} >= {bounding_box['lat_min']}")
                 formula_parts.append(f"{{location/lat}} <= {bounding_box['lat_max']}")
                 formula_parts.append(f"{{location/lng}} >= {bounding_box['lon_min']}")
                 formula_parts.append(f"{{location/lng}} <= {bounding_box['lon_max']}")
             
-                filter_formula = "AND(" + ", ".join(formula_parts_city) + ")"
+                filter_formula = "AND(" + ", ".join(formula_parts) + ")"
                 logging.info(f"Fórmula de filtro construida: location = ({coordenadas}), bounding_box = {filter_formula}")
             else:
                 logging.info("Usando coordenadas basadas en la ciudad")
@@ -266,13 +264,12 @@ def obtener_restaurantes_por_ciudad(
                 radio_km = 0.5  # Comenzamos con un radio pequeño, 0.5 km
                 while len(restaurantes_encontrados) < 10:
                     bounding_box = calcular_bounding_box(lat_centro, lon_centro, radio_km)
-                    formula_parts_city = formula_parts.copy()
-                    formula_parts_city.append(f"{{location/lat}} >= {bounding_box['lat_min']}")
-                    formula_parts_city.append(f"{{location/lat}} <= {bounding_box['lat_max']}")
-                    formula_parts_city.append(f"{{location/lng}} >= {bounding_box['lon_min']}")
-                    formula_parts_city.append(f"{{location/lng}} <= {bounding_box['lon_max']}")
+                    formula_parts.append(f"{{location/lat}} >= {bounding_box['lat_min']}")
+                    formula_parts.append(f"{{location/lat}} <= {bounding_box['lat_max']}")
+                    formula_parts.append(f"{{location/lng}} >= {bounding_box['lon_min']}")
+                    formula_parts.append(f"{{location/lng}} <= {bounding_box['lon_max']}")
             
-                    filter_formula = "AND(" + ", ".join(formula_parts_city) + ")"
+                    filter_formula = "AND(" + ", ".join(formula_parts) + ")"
                     logging.info(f"Fórmula de filtro construida: location = ({lat_centro}, {lon_centro}), bounding_box = {filter_formula}")
             
                     params = {
