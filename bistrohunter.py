@@ -350,7 +350,7 @@ def obtener_restaurantes_por_ciudad(
                     break
 
             # Ordenamos los restaurantes por proximidad si se especifica
-            if sort_by_proximity and location:
+            if sort_by_proximity:
                 restaurantes_encontrados.sort(key=lambda r: haversine(
                     lon_centro, lat_centro,
                     float(r['fields'].get('location/lng', 0)),
