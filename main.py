@@ -35,7 +35,7 @@ async def get_restaurantes(
         else:
             logging.info("No se proporcionaron coordenadas")
 
-        # Lógica para manejar coordenadas o fallback a ciudad
+        # Lógica para manejar coordenadas
         if coordenadas:
             
             logging.info(f"Usando coordenadas proporcionadas: {coordenadas}")
@@ -53,7 +53,7 @@ async def get_restaurantes(
             return {"coordenadas": coordenadas, "formula": formula}
         else:
             logging.info("Usando coordenadas basadas en la ciudad")
-            location_city = obtener_coordenadas(city)
+            location_city = obtener_coordenadas_zona(zona_item, city, radio_km)
             if not location_city:
                 raise HTTPException(status_code=404, detail="Ciudad no encontrada")
             lat_centro = location_city['location']['lat']
