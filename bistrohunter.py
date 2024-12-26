@@ -324,13 +324,13 @@ def obtener_restaurantes_por_ciudad(
                     ]
                     restaurantes_encontrados.extend(restaurantes_filtrados)
 
-                if len(restaurantes_encontrados) >= 10:
-                    break  # Si alcanzamos 10 resultados, detenemos la búsqueda
-
-                radio_km += 0.5  # Aumentamos el radio
-
-                if radio_km > 2:  # Limitar el rango máximo de búsqueda a 2 km
-                    break
+                    if len(restaurantes_encontrados) >= 10:
+                        break  # Si alcanzamos 10 resultados, detenemos la búsqueda
+    
+                    radio_km += 0.5  # Aumentamos el radio
+    
+                    if radio_km > 2:  # Limitar el rango máximo de búsqueda a 2 km
+                        break
 
             # Ordenamos los restaurantes por proximidad si se especifica
             if sort_by_proximity:
