@@ -63,17 +63,12 @@ async def get_restaurantes(
             }
 
         else:
-            # Si NO se pasan coordenadas, asumes que quieres usar la 'zona' (o la ciudad)
-            # y sacas las coordenadas de Google Maps
             radio_km = 2.0
             if not zona:
-                # Si no tienes zona, igual puedes usar city directamente
-                # O podrías definir una función para geocodificar la 'city'
                 raise HTTPException(
                     status_code=400,
                     detail="Debes especificar zona o coordenadas si no usas city."
                 )
-            
             logging.info("Usando coordenadas basadas en la zona")
             location_city = obtener_coordenadas_zona(zona, city, radio_km)
             if not location_city:
@@ -103,12 +98,6 @@ async def get_restaurantes(
         logging.error(f"Error al procesar la solicitud: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
-
-# Si realmente necesitas usar `obtener_dia_semana`, define la función:
-def obtener_dia_semana(fecha: datetime) -> str:
-    dias_semana = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
-    return dias_semana[fecha.weekday()]
-
 @app.post("/procesar-variables")
 async def procesar_variables(request: Request):
     try:
@@ -124,17 +113,6 @@ async def procesar_variables(request: Request):
         zona = data.get('zona')
         coordenadas = data.get('coordenadas')
 
-        if not city:
-            raise HTTPException(status_code=400, detail="La variable 'city' es obligatoria.")
-
-        dia_semana = None
-        if date:
-            try:
-                fecha = datetime.strptime(date, "%Y-%m-%d")
-                dia_semana = obtener_dia_semana(fecha)  # <- aquí llamas a la función definida arriba
-            except ValueError:
-                raise HTTPException(status_code=400, detail="La fecha proporcionada no tiene el formato correcto (YYYY-MM-DD).")
-
         # Llamar a la función para obtener los restaurantes y la fórmula de filtro
         logging.info(f"Coordenadas recibidas: {coordenadas}")
         restaurantes, filter_formula = obtener_restaurantes_por_ciudad(
@@ -148,7 +126,6 @@ async def procesar_variables(request: Request):
             coordenadas=coordenadas
         )
 
-        # Capturar la URL completa y los parámetros de la solicitud
         full_url = str(request.url)
         request_method = request.method
         api_call = f'{request_method} {full_url}'
