@@ -271,27 +271,13 @@ def obtener_restaurantes_por_ciudad(
             restaurantes_encontrados = restaurantes_encontrados[:max_total_restaurantes]
 
         else:
-            # Si no se especifica zona, procedemos como antes
+            logging.info(f"Coordenadas recibidas en get_restaurantes: {coordenadas}")
             if coordenadas:
-                # Verificamos que coordenadas sea una lista con dos elementos
-                if not (isinstance(coordenadas, list) and len(coordenadas) == 2 and all(isinstance(coord, (int, float)) for coord in coordenadas)):
-                    raise HTTPException(status_code=400, detail="Las coordenadas deben ser una lista de dos números (latitud y longitud).")
-                # Usamos las coordenadas proporcionadas para buscar
+                logging.info("Usando coordenadas proporcionadas")
                 location = busqueda_coordenadas_airtable(coordenadas)
-                if not location:
-                    raise HTTPException(status_code=404, detail="Coordenadas no encontradas.")
-                
-                lat_centro = location['location']['lat']
-                lon_centro = location['location']['lng']
             else:
-                # Si no se proporcionan coordenadas, obtenemos las de la ciudad
+                logging.info("Usando coordenadas basadas en la ciudad")
                 location_city = obtener_coordenadas(city, radio_km)
-                if not location_city:
-                    raise HTTPException(status_code=404, detail="Ciudad no encontrada.")
-                
-                lat_centro = location_city['location']['lat']
-                lon_centro = location_city['location']['lng']
-
             # Realizamos una búsqueda inicial dentro de la ciudad
             radio_km = 0.5  # Comenzamos con un radio pequeño, 0.5 km
             while len(restaurantes_encontrados) < 10:
