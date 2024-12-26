@@ -27,76 +27,72 @@ async def get_restaurantes(
     zona: Optional[str] = Query(None)
 ):
     try:
-        logging.info(f"Coordenadas recibidas en get_restaurantes: {coordenadas}")
+        async def get_restaurantes(
+    request: Request,  
+    city: str, 
+    date: Optional[str] = Query(None, description="La fecha en la que se planea visitar el restaurante"), 
+    price_range: Optional[str] = Query(None, description="El rango de precios deseado para el restaurante"),
+    cocina: Optional[str] = Query(None, description="El tipo de cocina que prefiere el cliente"),
+    diet: Optional[str] = Query(None, description="Dieta que necesita el cliente"),
+    dish: Optional[str] = Query(None, description="Plato por el que puede preguntar un cliente específicamente"),
+    zona: Optional[str] = Query(None, description="Zona específica dentro de la ciudad"),
+    coordenadas: Optional[str]= Query(None)
+):
+    try:
+        dia_semana = None
+        if date:
+            fecha = datetime.strptime(date, "%Y-%m-%d")
+            dia_semana = obtener_dia_semana(fecha)
+
+        # Llamar a la función para obtener los restaurantes y la fórmula de filtro
+        restaurantes, filter_formula = obtener_restaurantes_por_ciudad(
+            city, dia_semana, price_range, cocina, diet, dish, zona, sort_by_proximity=True
+        )
         
-        # Procesar coordenadas si se proporcionan
-        if coordenadas:
-            try:
-                # Convertir de str a lista de floats
-                coordenadas = [float(coord) for coord in coordenadas.split(",")]
-                logging.info(f"Coordenadas procesadas: {coordenadas}")
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Formato de coordenadas inválido")
-        else:
-            logging.info("No se proporcionaron coordenadas")
+        # Capturar la URL completa y los parámetros de la solicitud
+        full_url = str(request.url)
+        request_method = request.method
+        api_call = f'{request_method} {full_url}'
 
-        # Lógica para manejar coordenadas
-        if coordenadas:
-            logging.info(f"Usando coordenadas proporcionadas: {coordenadas}")
-            lat_centro, lon_centro = coordenadas[0], coordenadas[1]
-            logging.info(f"Calculando bounding box para coordenadas: {lat_centro}, {lon_centro}")
-
-            bounding_box = calcular_bounding_box(lat_centro, lon_centro, radio_km=2.0)
-            formula = (
-                f"AND("
-                f"{{location/lat}} >= {bounding_box['lat_min']}, "
-                f"{{location/lat}} <= {bounding_box['lat_max']}, "
-                f"{{location/lng}} >= {bounding_box['lon_min']}, "
-                f"{{location/lng}} <= {bounding_box['lon_max']}"
-                f")"
-            )
-            logging.info(f"Fórmula de filtro construida: {formula}")
-    
+        # Verifica si se encontraron restaurantes y accede correctamente a sus campos
+        if restaurantes:
             return {
-                "coordenadas": coordenadas,
-                "formula": formula
+                "restaurants": [
+                    {
+                        "cid": r['fields'].get('cid'),
+                        "title": r['fields'].get('title', 'Sin título'),
+                        "description": r['fields'].get('bh_message', 'Sin descripción'),
+                        "price_range": r['fields'].get('price_range', 'No especificado'),
+                        "score": r['fields'].get('NBH2', 'N/A'),
+                        "url": r['fields'].get('url', 'No especificado')
+                    } for r in restaurantes
+                ],
+                "variables": {
+                    "city": city,
+                    "price_range": price_range,
+                    "cuisine_type": cocina,
+                    "diet": diet,
+                    "dish": dish,
+                    "zone": zona
+                },
+                "api_call": api_call
             }
-
         else:
-            radio_km = 2.0
-            if not zona:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Debes especificar zona o coordenadas si no usas city."
-                )
-            logging.info("Usando coordenadas basadas en la zona")
-            location_city = obtener_coordenadas_zona(zona, city, radio_km)
-            if not location_city:
-                raise HTTPException(status_code=404, detail="Zona o ciudad no encontrada")
-            lat_centro = location_city['location']['lat']
-            lon_centro = location_city['location']['lng']
-
-            logging.info(f"Calculando bounding box para coordenadas: {lat_centro}, {lon_centro}")
-            bounding_box = calcular_bounding_box(lat_centro, lon_centro, radio_km=2.0)
-            formula = (
-                f"AND("
-                f"{{location/lat}} >= {bounding_box['lat_min']}, "
-                f"{{location/lat}} <= {bounding_box['lat_max']}, "
-                f"{{location/lng}} >= {bounding_box['lon_min']}, "
-                f"{{location/lng}} <= {bounding_box['lon_max']}"
-                f")"
-            )
-            logging.info(f"Fórmula de filtro construida: {formula}")
-    
             return {
-                "lat": lat_centro,
-                "lng": lon_centro,
-                "formula": formula
+                "mensaje": "No se encontraron restaurantes con los filtros aplicados.",
+                "variables": {
+                    "city": city,
+                    "price_range": price_range,
+                    "cuisine_type": cocina,
+                    "diet": diet,
+                    "dish": dish,
+                    "zone": zona
+                },
+                "api_call": api_call
             }
-    
     except Exception as e:
-        logging.error(f"Error al procesar la solicitud: {e}")
-        raise HTTPException(status_code=500, detail="Error interno del servidor")
+        logging.error(f"Error al buscar restaurantes: {e}")
+        raise HTTPException(status_code=500, detail="Error al buscar restaurantes")
 
 @app.post("/procesar-variables")
 async def procesar_variables(request: Request):
