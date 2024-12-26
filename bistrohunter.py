@@ -403,7 +403,8 @@ async def procesar_variables(request: Request):
             cocina=cocina,
             diet=diet,
             dish=dish,
-            zona=zona
+            zona=zona,
+            coordenadas=coordenadas
         )
 
         # Capturar la URL completa y los parámetros de la solicitud
