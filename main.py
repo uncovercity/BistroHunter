@@ -38,11 +38,11 @@ async def get_restaurantes(
         # Lógica para manejar coordenadas o fallback a ciudad
         if coordenadas:
             logging.info(f"Usando coordenadas proporcionadas: {coordenadas}")
-            location = busqueda_coordenadas_airtable(coordenadas)
+            location = coordenadas
             if not location:
                 raise HTTPException(status_code=404, detail="Coordenadas no encontradas")
-            lat_centro = location['location']['lat']
-            lon_centro = location['location']['lng']
+            lat_centro = location[0]
+            lon_centro = location[1]
         else:
             logging.info("Usando coordenadas basadas en la ciudad")
             location_city = obtener_coordenadas(city)
@@ -57,7 +57,7 @@ async def get_restaurantes(
         formula = f"AND({{location/lat}} >= {bounding_box['lat_min']}, {{location/lat}} <= {bounding_box['lat_max']}, {{location/lng}} >= {bounding_box['lon_min']}, {{location/lng}} <= {bounding_box['lon_max']})"
         logging.info(f"Fórmula de filtro construida: {formula}")
 
-        return {"lat_centro": lat_centro, "lon_centro": lon_centro, "formula": formula}
+        return {"coordenadas": coordenadas, "formula": formula}
     
     except Exception as e:
         logging.error(f"Error al procesar la solicitud: {e}")
