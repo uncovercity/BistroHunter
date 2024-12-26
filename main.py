@@ -37,12 +37,20 @@ async def get_restaurantes(
 
         # Lógica para manejar coordenadas o fallback a ciudad
         if coordenadas:
+            
             logging.info(f"Usando coordenadas proporcionadas: {coordenadas}")
             location = coordenadas
             if not location:
                 raise HTTPException(status_code=404, detail="Coordenadas no encontradas")
             lat_centro = location[0]
             lon_centro = location[1]
+            
+            logging.info(f"Calculando bounding box para coordenadas: {lat_centro}, {lon_centro}")
+            bounding_box = calcular_bounding_box(lat_centro, lon_centro, radio_km=2.0)
+            formula = f"AND({{location/lat}} >= {bounding_box['lat_min']}, {{location/lat}} <= {bounding_box['lat_max']}, {{location/lng}} >= {bounding_box['lon_min']}, {{location/lng}} <= {bounding_box['lon_max']})"
+            logging.info(f"Fórmula de filtro construida: {formula}")
+    
+            return {"coordenadas": coordenadas, "formula": formula}
         else:
             logging.info("Usando coordenadas basadas en la ciudad")
             location_city = obtener_coordenadas(city)
@@ -51,13 +59,12 @@ async def get_restaurantes(
             lat_centro = location_city['location']['lat']
             lon_centro = location_city['location']['lng']
 
-        # Calcular bounding box y construir fórmula
-        logging.info(f"Calculando bounding box para coordenadas: {lat_centro}, {lon_centro}")
-        bounding_box = calcular_bounding_box(lat_centro, lon_centro, radio_km=1.0)
-        formula = f"AND({{location/lat}} >= {bounding_box['lat_min']}, {{location/lat}} <= {bounding_box['lat_max']}, {{location/lng}} >= {bounding_box['lon_min']}, {{location/lng}} <= {bounding_box['lon_max']})"
-        logging.info(f"Fórmula de filtro construida: {formula}")
-
-        return {"coordenadas": coordenadas, "formula": formula}
+            logging.info(f"Calculando bounding box para coordenadas: {lat_centro}, {lon_centro}")
+            bounding_box = calcular_bounding_box(lat_centro, lon_centro, radio_km=2.0)
+            formula = f"AND({{location/lat}} >= {bounding_box['lat_min']}, {{location/lat}} <= {bounding_box['lat_max']}, {{location/lng}} >= {bounding_box['lon_min']}, {{location/lng}} <= {bounding_box['lon_max']})"
+            logging.info(f"Fórmula de filtro construida: {formula}")
+    
+            return {lat_centro, lon_centro, formula}
     
     except Exception as e:
         logging.error(f"Error al procesar la solicitud: {e}")
