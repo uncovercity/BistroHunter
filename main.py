@@ -21,6 +21,7 @@ async def get_restaurantes(
     diet: Optional[str] = Query(None, description="Dieta que necesita el cliente"),
     dish: Optional[str] = Query(None, description="Plato por el que puede preguntar un cliente específicamente"),
     zona: Optional[str] = Query(None, description="Zona específica dentro de la ciudad"),
+    coordenadas: Optional[str] = Query(None, description="Coordenadas del municipio cuando no se especifica zona")
 ):
     try:
         dia_semana = None
@@ -30,7 +31,7 @@ async def get_restaurantes(
 
         # Llamar a la función para obtener los restaurantes y la fórmula de filtro
         restaurantes, filter_formula = obtener_restaurantes_por_ciudad(
-            city, dia_semana, price_range, cocina, diet, dish, zona, sort_by_proximity=True
+            city, dia_semana, price_range, cocina, diet, dish, zona, coordenadas, sort_by_proximity=True
         )
         
         # Capturar la URL completa y los parámetros de la solicitud
@@ -91,6 +92,7 @@ async def procesar_variables(request: Request):
         diet = data.get('diet')
         dish = data.get('dish')
         zona = data.get('zona')
+        coordenadas = data.get('coordenadas')
 
         if not city:
             raise HTTPException(status_code=400, detail="La variable 'city' es obligatoria.")
@@ -111,7 +113,8 @@ async def procesar_variables(request: Request):
             cocina=cocina,
             diet=diet,
             dish=dish,
-            zona=zona
+            zona=zona,
+            coordenadas=coordenadas
         )
 
         # Capturar la URL completa y los parámetros de la solicitud
