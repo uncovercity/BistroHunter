@@ -106,6 +106,7 @@ async def procesar_variables(request: Request):
                 raise HTTPException(status_code=400, detail="La fecha proporcionada no tiene el formato correcto (YYYY-MM-DD).")
 
         # Llamar a la función para obtener los restaurantes y la fórmula de filtro
+        logging.info(f"Coordenadas recibidas: {coordenadas}")
         restaurantes, filter_formula = obtener_restaurantes_por_ciudad(
             city=city,
             dia_semana=dia_semana,
