@@ -24,29 +24,13 @@ async def get_restaurantes(
     cocina: Optional[str] = Query(None),
     diet: Optional[str] = Query(None),
     dish: Optional[str] = Query(None),
-    zona: Optional[str] = Query(None)
+    zona: Optional[str] = Query(None),
+    coordenadas: Optional[str]
 ):
     try:
-        async def get_restaurantes(
-    request: Request,  
-    city: str, 
-    date: Optional[str] = Query(None, description="La fecha en la que se planea visitar el restaurante"), 
-    price_range: Optional[str] = Query(None, description="El rango de precios deseado para el restaurante"),
-    cocina: Optional[str] = Query(None, description="El tipo de cocina que prefiere el cliente"),
-    diet: Optional[str] = Query(None, description="Dieta que necesita el cliente"),
-    dish: Optional[str] = Query(None, description="Plato por el que puede preguntar un cliente específicamente"),
-    zona: Optional[str] = Query(None, description="Zona específica dentro de la ciudad"),
-    coordenadas: Optional[str]= Query(None)
-):
-    try:
-        dia_semana = None
-        if date:
-            fecha = datetime.strptime(date, "%Y-%m-%d")
-            dia_semana = obtener_dia_semana(fecha)
-
-        # Llamar a la función para obtener los restaurantes y la fórmula de filtro
+        
         restaurantes, filter_formula = obtener_restaurantes_por_ciudad(
-            city, dia_semana, price_range, cocina, diet, dish, zona, sort_by_proximity=True
+            city, price_range, cocina, diet, dish, zona, sort_by_proximity=True
         )
         
         # Capturar la URL completa y los parámetros de la solicitud
@@ -54,7 +38,6 @@ async def get_restaurantes(
         request_method = request.method
         api_call = f'{request_method} {full_url}'
 
-        # Verifica si se encontraron restaurantes y accede correctamente a sus campos
         if restaurantes:
             return {
                 "restaurants": [
