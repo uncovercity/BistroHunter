@@ -245,18 +245,17 @@ def obtener_restaurantes_por_ciudad(
             restaurantes_encontrados = restaurantes_encontrados[:max_total_restaurantes]
 
         else:
-            logging.info(f"Coordenadas recibidas en get_restaurantes: {coordenadas}")
             if coordenadas:
-                # Procesar las coordenadas
+                logging.info(f"Coordenadas recibidas en get_restaurantes: {coordenadas}")
                 coordenadas = [float(coord) for coord in coordenadas.split(",")]
                 logging.info(f"Coordenadas procesadas: {coordenadas}")
-                location_data = busqueda_coordenadas_airtable(coordenadas)
+                location_data = coordenadas
                 if not location_data:
                     raise HTTPException(status_code=404, detail="No se pudo calcular la bounding box.")
                 
-                lat_centro = location_data['location']['lat']
-                lon_centro = location_data['location']['lng']
-                bounding_box = location_data['bounding_box']
+                lat_centro = location_data[0]
+                lon_centro = location_data[1]
+                bounding_box = calcular_bounding_box(lat_centro, lon_centro, radio_km=2)
             
                 # Crear la fórmula para filtrar en Airtable usando la bounding box
                 formula_parts.append(f"{{location/lat}} >= {bounding_box['lat_min']}")
@@ -265,29 +264,7 @@ def obtener_restaurantes_por_ciudad(
                 formula_parts.append(f"{{location/lng}} <= {bounding_box['lon_max']}")
             
                 filter_formula = "AND(" + ", ".join(formula_parts) + ")"
-                logging.info(f"Fórmula de filtro construida: location = ({lat_centro}, {lon_centro}), bounding_box = AND({', '.join(formula_parts)})")
-            else:
-                logging.info(f"Coordenadas recibidas en get_restaurantes: {coordenadas}")
-            if coordenadas:
-                # Procesar las coordenadas
-                coordenadas = [float(coord) for coord in coordenadas.split(",")]
-                logging.info(f"Coordenadas procesadas: {coordenadas}")
-                location_data = busqueda_coordenadas_airtable(coordenadas)
-                if not location_data:
-                    raise HTTPException(status_code=404, detail="No se pudo calcular la bounding box.")
-
-                lat_centro = location_data['location']['lat']
-                lon_centro = location_data['location']['lng']
-                bounding_box = location_data['bounding_box']
-
-                # Crear la fórmula para filtrar en Airtable usando la bounding box
-                formula_parts.append(f"{{location/lat}} >= {bounding_box['lat_min']}")
-                formula_parts.append(f"{{location/lat}} <= {bounding_box['lat_max']}")
-                formula_parts.append(f"{{location/lng}} >= {bounding_box['lon_min']}")
-                formula_parts.append(f"{{location/lng}} <= {bounding_box['lon_max']}")
-
-                filter_formula = "AND(" + ", ".join(formula_parts) + ")"
-                logging.info(f"Fórmula de filtro construida: location = ({lat_centro}, {lon_centro}), bounding_box = AND({', '.join(formula_parts)})")
+                logging.info(f"Fórmula de filtro construida: location = {coordenadas}, bounding_box = AND({', '.join(formula_parts)})")
             else:
                 logging.info("Usando coordenadas basadas en la ciudad")
                 location_city = obtener_coordenadas(city, radio_km)
