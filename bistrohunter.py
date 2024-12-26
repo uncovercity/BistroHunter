@@ -58,7 +58,7 @@ def obtener_coordenadas_zona(zona: str, ciudad: str, radio_km: float) -> Optiona
     try:
         url = f"https://maps.googleapis.com/maps/api/geocode/json"
         params = {
-            "address": f"{zona}, {ciudad}",
+            "address": f"zona {zona}, {ciudad}",
             "key": GOOGLE_MAPS_API_KEY,
             "components": "country:ES"
         }
@@ -280,7 +280,7 @@ def obtener_restaurantes_por_ciudad(
                 formula_parts_city.append(f"{{location/lng}} <= {limites['lon_max']}")
 
                 filter_formula = "AND(" + ", ".join(formula_parts_city) + ")"
-                logging.info(f"Fórmula de filtro construida: {filter_formula} para radio {radio_km} km")
+                logging.info(f"Fórmula de filtro construida: location = {lat_centro, lon_centro}, bounding_box = {filter_formula_zona}")
 
                 params = {
                     "filterByFormula": filter_formula,
