@@ -290,6 +290,7 @@ def obtener_restaurantes_por_ciudad(
                 formula_parts.append(f"{{location/lng}} >= {bounding_box['lon_min']}")
                 formula_parts.append(f"{{location/lng}} <= {bounding_box['lon_max']}")
             
+                filter_formula = "AND(" + ", ".join(formula_parts) + ")"
                 logging.info(f"Fórmula de filtro construida: location = ({lat_centro}, {lon_centro}), bounding_box = AND({', '.join(formula_parts)})")
             else:
                 logging.info("Usando coordenadas basadas en la ciudad")
