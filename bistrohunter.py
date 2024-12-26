@@ -6,7 +6,6 @@ from datetime import datetime
 import requests
 import logging
 from functools import wraps
-from cachetools import TTLCache
 from math import radians, cos, sin, asin, sqrt
 
 # Desplegar fast api (no tocar)
@@ -82,26 +81,12 @@ def obtener_coordenadas_zona(zona: str, ciudad: str, radio_km: float) -> Optiona
         logging.error(f"Error al obtener coordenadas de la zona: {e}")
         return None
 
-def cache_airtable_request(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        cache_key = f"{func.__name__}:{args}:{kwargs}"
-        if cache_key in restaurantes_cache:
-            return restaurantes_cache[cache_key]
-        result = func(*args, **kwargs)
-        restaurantes_cache[cache_key] = result
-        return result
-
-    return wrapper
-
-@cache_airtable_request
 def airtable_request(url, headers, params, view_id: Optional[str] = None):
     if view_id:
         params["view"] = view_id
     response = requests.get(url, headers=headers, params=params)
     return response.json() if response.status_code == 200 else None
 
-@cache_airtable_request
 def obtener_restaurantes_por_ciudad(
     city: str,
     dia_semana: Optional[str] = None,
