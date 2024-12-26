@@ -54,19 +54,6 @@ def calcular_bounding_box(lat, lon, radio_km=1):
         "lon_max": lon_max
     }
 
-
-def busqueda_coordenadas_airtable(coordenadas, radio_km=2.0):
-    logging.info(f"Calculando bounding box para coordenadas: {coordenadas}")
-    location = {"lat": coordenadas[0], "lng": coordenadas[1]}
-    bounding_box = calcular_bounding_box(coordenadas[0], coordenadas[1], radio_km)
-    result = {
-        "location": location,
-        "bounding_box": bounding_box
-    }
-    logging.info(f"Resultado de busqueda_coordenadas_airtable: {result}")
-    return result
-
-
 # Función que obtiene las coordenadas de la zona que ha especificado el cliente
 def obtener_coordenadas_zona(zona: str, ciudad: str, radio_km: float) -> Optional[dict]:
     try:
