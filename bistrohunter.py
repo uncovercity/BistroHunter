@@ -104,6 +104,7 @@ def airtable_request(url, headers, params, view_id: Optional[str] = None):
 
 
 @cache_airtable_request
+@cache_airtable_request
 def obtener_restaurantes_por_ciudad(
     city: str,
     dia_semana: Optional[str] = None,
@@ -123,40 +124,67 @@ def obtener_restaurantes_por_ciudad(
             "Authorization": f"Bearer {AIRTABLE_PAT}",
         }
 
-        # Inicializamos la fórmula de búsqueda
-        formula_parts = []
-        restaurantes_encontrados = []
-        filter_formula = None
+        # 1) Construimos los filtros base (price_range, cocina, diet, dish)
+        base_filters = []
 
+        # --- price_range ---
         if price_range:
             ranges = price_range.split(',')
             if len(ranges) == 1:
-                formula_parts.append(f"FIND('{price_range}', ARRAYJOIN({{price_range}}, ', ')) > 0")
+                # Caso de un solo rango, p.e. '$$'
+                base_filters.append(
+                    f"FIND('{price_range.strip()}', ARRAYJOIN({{price_range}}, ', ')) > 0"
+                )
             else:
-                conditions = [f"FIND('{r.strip()}', ARRAYJOIN({{price_range}}, ', ')) > 0" for r in ranges]
-                formula_parts.append(f"OR({', '.join(conditions)})")
+                # Caso de varios rangos, p.e. '$, $$'
+                conditions = [
+                    f"FIND('{r.strip()}', ARRAYJOIN({{price_range}}, ', ')) > 0"
+                    for r in ranges
+                ]
+                base_filters.append(f"OR({', '.join(conditions)})")
 
+        # --- cocina ---
         if cocina:
             cocinas = cocina.split(',')
             if len(cocinas) == 1:
-                formula_parts.append(f"SEARCH('{cocina.strip()}', {{categories_string}}) > 0")
+                base_filters.append(
+                    f"SEARCH('{cocina.strip()}', {{categories_string}}) > 0"
+                )
             else:
-                conditions = [f"SEARCH('{c.strip()}', {{categories_string}}) > 0" for c in cocinas]
-                formula_parts.append(f"OR({', '.join(conditions)})")
+                conditions = [
+                    f"SEARCH('{c.strip()}', {{categories_string}}) > 0"
+                    for c in cocinas
+                ]
+                base_filters.append(f"OR({', '.join(conditions)})")
 
+        # --- diet ---
         if diet:
-            formula_parts.append(f"SEARCH('{diet}', {{categories_string}}) > 0")
+            base_filters.append(f"SEARCH('{diet.strip()}', {{categories_string}}) > 0")
 
+        # --- dish ---
         if dish:
             dishes = dish.split(',')
             if len(dishes) == 1:
-                formula_parts.append(f"SEARCH('{dish}', {{google_reviews}}) > 0")
+                base_filters.append(
+                    f"SEARCH('{dish.strip()}', {{google_reviews}}) > 0"
+                )
             else:
-                conditions = [f"SEARCH('{d.strip()}', {{google_reviews}}) > 0" for d in dishes]
-                formula_parts.append(f"OR({', '.join(conditions)})")
+                conditions = [
+                    f"SEARCH('{d.strip()}', {{google_reviews}}) > 0"
+                    for d in dishes
+                ]
+                base_filters.append(f"OR({', '.join(conditions)})")
 
+        restaurantes_encontrados = []
+        final_filter_formula = None  # para retornarla después si quieres verla
+
+        # 2) Si hay ZONA
         if zona:
-            zonas_list = [z.strip() for z in zona.split(',')] if ',' in zona else [zona]
+            zonas_list = (
+                [z.strip() for z in zona.split(',')]
+                if ',' in zona else
+                [zona]
+            )
 
             for zona_item in zonas_list:
                 location_zona = obtener_coordenadas_zona(zona_item, city, radio_km)
@@ -171,16 +199,21 @@ def obtener_restaurantes_por_ciudad(
                 lon_min = bounding_box['lon_min']
                 lon_max = bounding_box['lon_max']
 
-                formula_parts.append(f"{{location/lat}} >= {lat_min}")
-                formula_parts.append(f"{{location/lat}} <= {lat_max}")
-                formula_parts.append(f"{{location/lng}} >= {lon_min}")
-                formula_parts.append(f"{{location/lng}} <= {lon_max}")
+                # Creamos una copia de los filtros base y le añadimos la parte geográfica
+                zone_filters = base_filters.copy()
+                zone_filters.append(f"{{location/lat}} >= {lat_min}")
+                zone_filters.append(f"{{location/lat}} <= {lat_max}")
+                zone_filters.append(f"{{location/lng}} >= {lon_min}")
+                zone_filters.append(f"{{location/lng}} <= {lon_max}")
 
-                filter_formula = "AND(" + ", ".join(formula_parts) + ")"
-                logging.info(f"Fórmula de filtro construida para zona '{zona_item}': {filter_formula}")
+                # Hacemos un AND global de todas las partes
+                final_filter_formula = f"AND({', '.join(zone_filters)})"
+                logging.info(
+                    f"Fórmula de filtro construida para zona '{zona_item}': {final_filter_formula}"
+                )
 
                 params = {
-                    "filterByFormula": filter_formula,
+                    "filterByFormula": final_filter_formula,
                     "sort[0][field]": "NBH2",
                     "sort[0][direction]": "desc",
                     "maxRecords": 10
@@ -188,39 +221,60 @@ def obtener_restaurantes_por_ciudad(
 
                 response_data = airtable_request(url, headers, params, view_id="viw6z7g5ZZs3mpy3S")
                 if response_data and 'records' in response_data:
-                    restaurantes_filtrados = [
-                        restaurante for restaurante in response_data['records']
-                        if restaurante not in restaurantes_encontrados
+                    # Evitamos duplicados
+                    nuevos_restaurantes = [
+                        r for r in response_data['records']
+                        if r not in restaurantes_encontrados
                     ]
-                    restaurantes_encontrados.extend(restaurantes_filtrados)
+                    restaurantes_encontrados.extend(nuevos_restaurantes)
 
+            # Ajustamos la cantidad máximo de restaurantes
             max_total_restaurantes = len(zonas_list) * 10
             restaurantes_encontrados = restaurantes_encontrados[:max_total_restaurantes]
 
+        # 3) Si NO hay ZONA, utilizamos coordenadas (y un radio incremental)
         else:
+            if not coordenadas:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Debes especificar 'zona' o 'coordenadas'."
+                )
 
-            logging.info(f"Coordenadas recibidas en get_restaurantes: {coordenadas}")
-            coordenadas = [float(coord) for coord in coordenadas.split(",")]
-            logging.info(f"Coordenadas procesadas: {coordenadas}")
-            location_data = coordenadas
-            if not location_data:
-                raise HTTPException(status_code=404, detail="No se pudo calcular la bounding box.")
-            lat_centro = location_data[0]
-            lon_centro = location_data[1]
+            logging.info(f"Coordenadas recibidas: {coordenadas}")
+            coords = [float(coord) for coord in coordenadas.split(",")]
+            if len(coords) != 2:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Coordenadas inválidas. Deben ser [lat, lng] en texto."
+                )
 
-            # Inicia el bucle de búsqueda con el radio incremental
+            lat_centro, lon_centro = coords
+            logging.info(f"Coordenadas procesadas: lat={lat_centro}, lon={lon_centro}")
+
+            # Mientras no tengamos al menos 10 resultados, agrandamos el radio
             while len(restaurantes_encontrados) < 10:
                 bounding_box = calcular_bounding_box(lat_centro, lon_centro, radio_km)
-                formula_parts.append(f"{{location/lat}} >= {bounding_box['lat_min']}")
-                formula_parts.append(f"{{location/lat}} <= {bounding_box['lat_max']}")
-                formula_parts.append(f"{{location/lng}} >= {bounding_box['lon_min']}")
-                formula_parts.append(f"{{location/lng}} <= {bounding_box['lon_max']}")
+                lat_min = bounding_box['lat_min']
+                lat_max = bounding_box['lat_max']
+                lon_min = bounding_box['lon_min']
+                lon_max = bounding_box['lon_max']
 
-                filter_formula = "AND(" + ", ".join(formula_parts) + ")"
-                logging.info(f"Fórmula de filtro construida: location = ({lat_centro}, {lon_centro}), bounding_box = {filter_formula}")
+                # Copiamos los filtros base y añadimos la parte geográfica
+                geo_filters = base_filters.copy()
+                geo_filters.extend([
+                    f"{{location/lat}} >= {lat_min}",
+                    f"{{location/lat}} <= {lat_max}",
+                    f"{{location/lng}} >= {lon_min}",
+                    f"{{location/lng}} <= {lon_max}"
+                ])
+
+                final_filter_formula = f"AND({', '.join(geo_filters)})"
+                logging.info(
+                    f"Fórmula de filtro construida: location=({lat_centro}, {lon_centro}), bounding_box={final_filter_formula}"
+                )
 
                 params = {
-                    "filterByFormula": filter_formula,
+                    "filterByFormula": final_filter_formula,
                     "sort[0][field]": "NBH2",
                     "sort[0][direction]": "desc",
                     "maxRecords": 10
@@ -228,33 +282,42 @@ def obtener_restaurantes_por_ciudad(
 
                 response_data = airtable_request(url, headers, params)
                 if response_data and 'records' in response_data:
-                    restaurantes_filtrados = [
-                        restaurante for restaurante in response_data['records']
-                        if restaurante not in restaurantes_encontrados
+                    nuevos_restaurantes = [
+                        r for r in response_data['records']
+                        if r not in restaurantes_encontrados
                     ]
-                    restaurantes_encontrados.extend(restaurantes_filtrados)
+                    restaurantes_encontrados.extend(nuevos_restaurantes)
 
                 if len(restaurantes_encontrados) >= 10:
                     break
 
+                # Incrementamos el radio para volver a intentar
                 radio_km += 0.5
-                if radio_km > 2:
+                if radio_km > 2:  # límite de 2 km
                     break
 
-            if sort_by_proximity:
-                restaurantes_encontrados.sort(key=lambda r: haversine(
-                    lon_centro, lat_centro,
-                    float(r['fields'].get('location/lng', 0)),
-                    float(r['fields'].get('location/lat', 0))
-                ))
+            # 4) Orden opcional por proximidad
+            if sort_by_proximity and restaurantes_encontrados:
+                restaurantes_encontrados.sort(
+                    key=lambda r: haversine(
+                        lon_centro,
+                        lat_centro,
+                        float(r['fields'].get('location/lng', 0)),
+                        float(r['fields'].get('location/lat', 0))
+                    )
+                )
 
+            # Tomamos los primeros 10
             restaurantes_encontrados = restaurantes_encontrados[:10]
 
-        return restaurantes_encontrados, filter_formula
+        return restaurantes_encontrados, final_filter_formula
 
     except Exception as e:
         logging.error(f"Error al obtener restaurantes de la ciudad: {e}")
-        raise HTTPException(status_code=500, detail="Error al obtener restaurantes de la ciudad")
+        raise HTTPException(
+            status_code=500,
+            detail="Error al obtener restaurantes de la ciudad"
+        )
 
 @app.post("/procesar-variables")
 
