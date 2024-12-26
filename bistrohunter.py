@@ -245,13 +245,14 @@ def obtener_restaurantes_por_ciudad(
                 bounding_box = calcular_bounding_box(lat_centro, lon_centro, radio_km=2)
             
                 # Crear la fórmula para filtrar en Airtable usando la bounding box
+                formula_parts_city = formula_parts.copy()
                 formula_parts.append(f"{{location/lat}} >= {bounding_box['lat_min']}")
                 formula_parts.append(f"{{location/lat}} <= {bounding_box['lat_max']}")
                 formula_parts.append(f"{{location/lng}} >= {bounding_box['lon_min']}")
                 formula_parts.append(f"{{location/lng}} <= {bounding_box['lon_max']}")
             
-                filter_formula = "AND(" + ", ".join(formula_parts) + ")"
-                logging.info(f"Fórmula de filtro construida: location = {coordenadas}, bounding_box = AND({', '.join(formula_parts)})")
+                filter_formula = "AND(" + ", ".join(formula_parts_city) + ")"
+                logging.info(f"Fórmula de filtro construida: location = ({coordenadas}), bounding_box = {filter_formula}")
             else:
                 logging.info("Usando coordenadas basadas en la ciudad")
                 location_city = obtener_coordenadas(city, radio_km)
@@ -264,7 +265,7 @@ def obtener_restaurantes_por_ciudad(
                 # Realizamos una búsqueda inicial dentro de la ciudad
                 radio_km = 0.5  # Comenzamos con un radio pequeño, 0.5 km
                 while len(restaurantes_encontrados) < 10:
-                    limites = calcular_bounding_box(lat_centro, lon_centro, radio_km)
+                    bounding_box = calcular_bounding_box(lat_centro, lon_centro, radio_km)
                     formula_parts_city = formula_parts.copy()
                     formula_parts_city.append(f"{{location/lat}} >= {limites['lat_min']}")
                     formula_parts_city.append(f"{{location/lat}} <= {limites['lat_max']}")
@@ -274,28 +275,28 @@ def obtener_restaurantes_por_ciudad(
                     filter_formula = "AND(" + ", ".join(formula_parts_city) + ")"
                     logging.info(f"Fórmula de filtro construida: location = ({lat_centro}, {lon_centro}), bounding_box = {filter_formula}")
 
-                    params = {
-                        "filterByFormula": filter_formula,
-                        "sort[0][field]": "NBH2",
-                        "sort[0][direction]": "desc",
-                        "maxRecords": 10
-                    }
+            params = {
+                "filterByFormula": filter_formula,
+                "sort[0][field]": "NBH2",
+                "sort[0][direction]": "desc",
+                "maxRecords": 10
+            }
 
-                    response_data = airtable_request(url, headers, params)
-                    if response_data and 'records' in response_data:
-                        restaurantes_filtrados = [
-                            restaurante for restaurante in response_data['records']
-                            if restaurante not in restaurantes_encontrados  # Evitar duplicados
-                        ]
-                        restaurantes_encontrados.extend(restaurantes_filtrados)
+            response_data = airtable_request(url, headers, params)
+            if response_data and 'records' in response_data:
+                restaurantes_filtrados = [
+                    restaurante for restaurante in response_data['records']
+                    if restaurante not in restaurantes_encontrados  # Evitar duplicados
+                ]
+                restaurantes_encontrados.extend(restaurantes_filtrados)
 
-                    if len(restaurantes_encontrados) >= 10:
-                        break
+            if len(restaurantes_encontrados) >= 10:
+                break
 
-                    radio_km += 0.5  # Aumentamos el radio
+            radio_km += 0.5  # Aumentamos el radio
 
-                    if radio_km > 2:  # Limitar el rango máximo de búsqueda a 2 km
-                        break
+            if radio_km > 2:  # Limitar el rango máximo de búsqueda a 2 km
+                break
 
             # Ordenamos los restaurantes por proximidad si se especifica
             if sort_by_proximity:
@@ -304,16 +305,16 @@ def obtener_restaurantes_por_ciudad(
                     float(r['fields'].get('location/lng', 0)),
                     float(r['fields'].get('location/lat', 0))
                 ))
-
+    
             # Limitamos los resultados a 10 restaurantes
             restaurantes_encontrados = restaurantes_encontrados[:10]
-
+    
         # Devolvemos los restaurantes encontrados y la fórmula de filtro usada
         return restaurantes_encontrados, filter_formula
-
-    except Exception as e:
-        logging.error(f"Error al obtener restaurantes de la ciudad: {e}")
-        raise HTTPException(status_code=500, detail="Error al obtener restaurantes de la ciudad")
+    
+        except Exception as e:
+            logging.error(f"Error al obtener restaurantes de la ciudad: {e}")
+            raise HTTPException(status_code=500, detail="Error al obtener restaurantes de la ciudad")
 
 @app.post("/procesar-variables")
 
