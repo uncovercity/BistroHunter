@@ -252,11 +252,11 @@ def obtener_restaurantes_por_ciudad(
                 logging.info(f"Fórmula de filtro construida: location = {lat_centro, lon_centro}, bounding_box = {filter_formula_zona} para zona '{zona_item}'")
 
                 params = {
-                    "filterByFormula": filter_formula_zona,
-                    "sort[0][field]": "NBH2",
-                    "sort[0][direction]": "desc",
-                    "maxRecords": 10  # Solicitamos hasta 10 restaurantes por zona
-                }
+                "filterByFormula": "AND(" + ", ".join(formula_parts) + ")",
+                "sort[0][field]": "NBH2",
+                "sort[0][direction]": "desc",
+                "maxRecords": 10
+            }
 
                 response_data = airtable_request(url, headers, params, view_id="viw6z7g5ZZs3mpy3S")
                 if response_data and 'records' in response_data:
