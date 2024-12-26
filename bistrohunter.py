@@ -94,7 +94,6 @@ def cache_airtable_request(func):
 
     return wrapper
 
-
 @cache_airtable_request
 def airtable_request(url, headers, params, view_id: Optional[str] = None):
     if view_id:
@@ -102,8 +101,6 @@ def airtable_request(url, headers, params, view_id: Optional[str] = None):
     response = requests.get(url, headers=headers, params=params)
     return response.json() if response.status_code == 200 else None
 
-
-@cache_airtable_request
 @cache_airtable_request
 def obtener_restaurantes_por_ciudad(
     city: str,
