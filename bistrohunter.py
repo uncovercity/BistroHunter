@@ -173,10 +173,10 @@ def obtener_restaurantes_por_ciudad(
     diet: Optional[str] = None,
     dish: Optional[str] = None,
     zona: Optional[str] = None,
-    coordenadas: Optional[list[float]] = None, 
+    coordenadas: Optional[list] = None, 
     radio_km: float = 1.0,
     sort_by_proximity: bool = True
-):
+) -> (list[dict], Optional[str]):
     try:
         table_name = 'Restaurantes DB'
         url = f"https://api.airtable.com/v0/{BASE_ID}/{table_name}"
@@ -292,13 +292,25 @@ def obtener_restaurantes_por_ciudad(
 
         else:
             # Si no se especifica zona, procedemos como antes
-            # Obtenemos las coordenadas de la ciudad
-            location = busqueda_coordenadas_airtable(coordenadas)
-            if not location:
-                raise HTTPException(status_code=404, detail="Ciudad no encontrada.")
-            
-            lat_centro = location['location']['lat']
-            lon_centro = location['location']['lng']
+            if coordenadas:
+                # Verificamos que coordenadas sea una lista con dos elementos
+                if not (isinstance(coordenadas, list) and len(coordenadas) == 2 and all(isinstance(coord, (int, float)) for coord in coordenadas)):
+                    raise HTTPException(status_code=400, detail="Las coordenadas deben ser una lista de dos números (latitud y longitud).")
+                # Usamos las coordenadas proporcionadas para buscar
+                location = busqueda_coordenadas_airtable(coordenadas)
+                if not location:
+                    raise HTTPException(status_code=404, detail="Coordenadas no encontradas.")
+                
+                lat_centro = location['location']['lat']
+                lon_centro = location['location']['lng']
+            else:
+                # Si no se proporcionan coordenadas, obtenemos las de la ciudad
+                location_city = obtener_coordenadas(city, radio_km)
+                if not location_city:
+                    raise HTTPException(status_code=404, detail="Ciudad no encontrada.")
+                
+                lat_centro = location_city['location']['lat']
+                lon_centro = location_city['location']['lng']
 
             # Realizamos una búsqueda inicial dentro de la ciudad
             radio_km = 0.5  # Comenzamos con un radio pequeño, 0.5 km
