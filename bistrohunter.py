@@ -208,22 +208,22 @@ def obtener_restaurantes_por_ciudad(
             lat_centro = location_data[0]
             lon_centro = location_data[1]
             bounding_box = calcular_bounding_box(lat_centro, lon_centro, radio_km=2)
-            
+
             formula_parts.append(f"{{location/lat}} >= {bounding_box['lat_min']}")
             formula_parts.append(f"{{location/lat}} <= {bounding_box['lat_max']}")
             formula_parts.append(f"{{location/lng}} >= {bounding_box['lon_min']}")
             formula_parts.append(f"{{location/lng}} <= {bounding_box['lon_max']}")
-        
+
             filter_formula = "AND(" + ", ".join(formula_parts) + ")"
             logging.info(f"Fórmula de filtro construida: location = ({coordenadas}), bounding_box = {filter_formula}")
-            
+
             params = {
                 "filterByFormula": filter_formula,
                 "sort[0][field]": "NBH2",
                 "sort[0][direction]": "desc",
                 "maxRecords": 10
             }
-    
+
             response_data = airtable_request(url, headers, params)
             if response_data and 'records' in response_data:
                 restaurantes_filtrados = [
@@ -231,7 +231,7 @@ def obtener_restaurantes_por_ciudad(
                     if restaurante not in restaurantes_encontrados  # Evitar duplicados
                 ]
                 restaurantes_encontrados.extend(restaurantes_filtrados)
-    
+
             if len(restaurantes_encontrados) >= 10:
                 break
 
@@ -241,13 +241,13 @@ def obtener_restaurantes_por_ciudad(
                     float(r['fields'].get('location/lng', 0)),
                     float(r['fields'].get('location/lat', 0))
                 ))
-            
+
             # Limitamos los resultados a 10 restaurantes
             restaurantes_encontrados = restaurantes_encontrados[:10]
-            
+
             # Devolvemos los restaurantes encontrados y la fórmula de filtro usada
             return restaurantes_encontrados, filter_formula
-            
+
     except Exception as e:
         logging.error(f"Error al obtener restaurantes de la ciudad: {e}")
         raise HTTPException(status_code=500, detail="Error al obtener restaurantes de la ciudad")
