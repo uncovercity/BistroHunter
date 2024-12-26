@@ -173,7 +173,7 @@ def obtener_restaurantes_por_ciudad(
     diet: Optional[str] = None,
     dish: Optional[str] = None,
     zona: Optional[str] = None,
-    coordenadas: Optional[List[float]] = None,  # Cambiado a List[float]
+    coordenadas: Optional[list[float]] = None, 
     radio_km: float = 1.0,
     sort_by_proximity: bool = True
 ):
