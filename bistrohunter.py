@@ -312,9 +312,9 @@ def obtener_restaurantes_por_ciudad(
             # Devolvemos los restaurantes encontrados y la fórmula de filtro usada
             return restaurantes_encontrados, filter_formula
             
-            except Exception as e:
-                logging.error(f"Error al obtener restaurantes de la ciudad: {e}")
-                raise HTTPException(status_code=500, detail="Error al obtener restaurantes de la ciudad")
+    except Exception as e:
+        logging.error(f"Error al obtener restaurantes de la ciudad: {e}")
+        raise HTTPException(status_code=500, detail="Error al obtener restaurantes de la ciudad")
 
 @app.post("/procesar-variables")
 
