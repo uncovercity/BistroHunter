@@ -112,7 +112,6 @@ async def procesar_variables(request: Request):
         logging.info(f"Coordenadas recibidas: {coordenadas}")
         restaurantes, filter_formula = obtener_restaurantes_por_ciudad(
             city=city,
-            dia_semana=dia_semana,
             price_range=price_range,
             cocina=cocina,
             diet=diet,
