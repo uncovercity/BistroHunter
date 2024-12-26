@@ -53,7 +53,7 @@ def calcular_bounding_box(lat, lon, radio_km=1):
         "lon_max": lon_max
     }
 
-def busqueda_coordenadas_airtable(coordenadas: List[float], radio_km: float = 1.0) -> Optional[dict]:
+def busqueda_coordenadas_airtable(coordenadas: list, radio_km: float = 1.0) -> Optional[dict]:
     try:
         url = "https://maps.googleapis.com/maps/api/geocode/json"
         params = {
