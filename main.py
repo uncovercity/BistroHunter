@@ -1,7 +1,7 @@
 #IMPORTS
 from fastapi import FastAPI, Query, HTTPException, Request
 from typing import Optional
-from bistrohunter import calcular_bounding_box, busqueda_coordenadas_airtable, obtener_restaurantes_por_ciudad, haversine, obtener_coordenadas, obtener_coordenadas_zona
+from bistrohunter import calcular_bounding_box, obtener_restaurantes_por_ciudad, haversine, obtener_coordenadas, obtener_coordenadas_zona
 import logging
 from datetime import datetime
 
