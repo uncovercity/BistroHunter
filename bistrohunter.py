@@ -176,7 +176,7 @@ def obtener_restaurantes_por_ciudad(
     coordenadas: Optional[List[float]] = None,  # Cambiado a List[float]
     radio_km: float = 1.0,
     sort_by_proximity: bool = True
-) -> Tuple[List[dict], Optional[str]]:
+):
     try:
         table_name = 'Restaurantes DB'
         url = f"https://api.airtable.com/v0/{BASE_ID}/{table_name}"
