@@ -53,11 +53,11 @@ def calcular_bounding_box(lat, lon, radio_km=1):
         "lon_max": lon_max
     }
 
-def busqueda_coordenadas_airtable(coordenadas, radio_km=1.0):
+def busqueda_coordenadas_airtable(coordenadas: List[float], radio_km: float = 1.0) -> Optional[dict]:
     try:
         url = "https://maps.googleapis.com/maps/api/geocode/json"
         params = {
-            "address": coordenadas,
+            "latlng": f"{coordenadas[0]}, {coordenadas[1]}",
             "key": GOOGLE_MAPS_API_KEY,
             "components": "country:ES"
         }
@@ -65,20 +65,23 @@ def busqueda_coordenadas_airtable(coordenadas, radio_km=1.0):
         response.raise_for_status()
         data = response.json()
         if data['status'] == 'OK':
-            geometry = data['results'][0]['geometry']
-            location = geometry['location']
-            lat_central = location['lat']
-            lon_central = location['lng']
-            bounding_box = calcular_bounding_box(lat_central, lon_central, radio_km)
+            location = {"lat": coordenadas[0], "lng": coordenadas[1]}
+            bounding_box = calcular_bounding_box(coordenadas[0], coordenadas[1], radio_km)
             return {
                 "location": location,
                 "bounding_box": bounding_box
             }
         else:
-            logging.error(f"Error en la geocodificación: {data['status']}")
+            logging.error(f"Error en la geocodificación: {data['status']} - {data.get('error_message', '')}")
             return None
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error en la solicitud de geocodificación: {e}")
+        return None
+    except KeyError as e:
+        logging.error(f"Clave faltante en la respuesta de geocodificación: {e}")
+        return None
     except Exception as e:
-        logging.error(f"Error al obtener coordenadas de la zona: {e}")
+        logging.error(f"Error inesperado: {e}")
         return None
 
 #Función que obtiene las coordenadas de la zona que ha especificado el cliente
@@ -170,10 +173,10 @@ def obtener_restaurantes_por_ciudad(
     diet: Optional[str] = None,
     dish: Optional[str] = None,
     zona: Optional[str] = None,
-    coordenadas: Optional[str] = None,
+    coordenadas: Optional[List[float]] = None,  # Cambiado a List[float]
     radio_km: float = 1.0,
-    sort_by_proximity: bool = True  # Nuevo parámetro para ordenar por proximidad
-) -> (List[dict], str):
+    sort_by_proximity: bool = True
+) -> Tuple[List[dict], Optional[str]]:
     try:
         table_name = 'Restaurantes DB'
         url = f"https://api.airtable.com/v0/{BASE_ID}/{table_name}"
