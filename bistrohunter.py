@@ -53,32 +53,33 @@ def calcular_bounding_box(lat, lon, radio_km=1):
         "lon_max": lon_max
     }
 
-def busqueda_coordenadas_airtable(coordenadas,radio_km=1.0):
-   try:
-    url = f"https://maps.googleapis.com/maps/api/geocode/json"
-    params = {
-        "address": f"{coordenadas}",
-        "key": GOOGLE_MAPS_API_KEY,
-        "components": "country:ES"
-    }
-    response = requests.get(url, params=params)
-    data = response.json()
-    if data['status'] == 'OK':
-        geometry = data['results'][0]['geometry']
-        location = geometry['location']
-        lat_central = location['lat']
-        lon_central = location['lng']
-        bounding_box = calcular_bounding_box(lat_central, lon_central, radio_km)
-        return {
-            "location": location,
-            "bounding_box": bounding_box
+def busqueda_coordenadas_airtable(coordenadas, radio_km=1.0):
+    try:
+        url = "https://maps.googleapis.com/maps/api/geocode/json"
+        params = {
+            "address": coordenadas,
+            "key": GOOGLE_MAPS_API_KEY,
+            "components": "country:ES"
         }
-    else:
-        logging.error(f"Error en la geocodificación: {data['status']}")
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        if data['status'] == 'OK':
+            geometry = data['results'][0]['geometry']
+            location = geometry['location']
+            lat_central = location['lat']
+            lon_central = location['lng']
+            bounding_box = calcular_bounding_box(lat_central, lon_central, radio_km)
+            return {
+                "location": location,
+                "bounding_box": bounding_box
+            }
+        else:
+            logging.error(f"Error en la geocodificación: {data['status']}")
+            return None
+    except Exception as e:
+        logging.error(f"Error al obtener coordenadas de la zona: {e}")
         return None
-except Exception as e:
-    logging.error(f"Error al obtener coordenadas de la zona: {e}")
-    return None
 
 #Función que obtiene las coordenadas de la zona que ha especificado el cliente
 def obtener_coordenadas_zona(zona: str, ciudad: str, radio_km: float) -> Optional[dict]:
