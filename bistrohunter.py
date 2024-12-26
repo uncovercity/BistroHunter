@@ -142,6 +142,7 @@ def obtener_restaurantes_por_ciudad(
     diet: Optional[str] = None,
     dish: Optional[str] = None,
     zona: Optional[str] = None,
+    radio_km: float = 1.0,
     sort_by_proximity: bool = True  # Nuevo parámetro para ordenar por proximidad
 ) -> (List[dict], str):
     try:
