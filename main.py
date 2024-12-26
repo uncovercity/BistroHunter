@@ -21,7 +21,7 @@ async def get_restaurantes(
     diet: Optional[str] = Query(None, description="Dieta que necesita el cliente"),
     dish: Optional[str] = Query(None, description="Plato por el que puede preguntar un cliente específicamente"),
     zona: Optional[str] = Query(None, description="Zona específica dentro de la ciudad"),
-    coordenadas: Optional[str] = Query(None, description="Coordenadas del municipio cuando no se especifica zona")
+    coordenadas: Optional[List[float]] = None
 ):
     try:
         dia_semana = None
