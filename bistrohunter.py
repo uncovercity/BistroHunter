@@ -53,7 +53,7 @@ def calcular_bounding_box(lat, lon, radio_km=1):
         "lon_max": lon_max
     }
 
-def busqueda_coordenadas_airtable(coordenadas, radio_km=1.0):
+def busqueda_coordenadas_airtable(coordenadas, radio_km=2.0):
     logging.info(f"Calculando bounding box para coordenadas: {coordenadas}")
     location = {"lat": coordenadas[0], "lng": coordenadas[1]}
     bounding_box = calcular_bounding_box(coordenadas[0], coordenadas[1], radio_km)
@@ -294,10 +294,10 @@ def obtener_restaurantes_por_ciudad(
             else:
                 logging.info("Usando coordenadas basadas en la ciudad")
                 location_city = obtener_coordenadas(city, radio_km)
-            # Realizamos una búsqueda inicial dentro de la ciudad
-            radio_km = 0.5  # Comenzamos con un radio pequeño, 0.5 km
-            while len(restaurantes_encontrados) < 10:
-                formula_parts_city = formula_parts.copy()
+                # Realizamos una búsqueda inicial dentro de la ciudad
+                radio_km = 0.5  # Comenzamos con un radio pequeño, 0.5 km
+                while len(restaurantes_encontrados) < 10:
+                    formula_parts_city = formula_parts.copy()
 
                 limites = calcular_bounding_box(lat_centro, lon_centro, radio_km)
                 formula_parts_city.append(f"{{location/lat}} >= {limites['lat_min']}")
