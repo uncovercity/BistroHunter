@@ -58,7 +58,7 @@ def obtener_coordenadas_zona(zona: str, ciudad: str, radio_km: float) -> Optiona
     try:
         url = f"https://maps.googleapis.com/maps/api/geocode/json"
         params = {
-            "address": f"zona {zona}, {ciudad}",
+            "address": f"{zona}, {ciudad}",
             "key": GOOGLE_MAPS_API_KEY,
             "components": "country:ES"
         }
